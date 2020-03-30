@@ -1,6 +1,8 @@
 # Editors
 .idea/
 .vscode/settings.json
+.*.swp
+*~
 
 # Environments
 .env
