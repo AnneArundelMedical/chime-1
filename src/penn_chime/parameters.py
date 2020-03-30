@@ -1,3 +1,4 @@
+# vim: et ts=8 sts=4 sw=4
 """Parameters.
 
 Changes affecting results or their presentation should also update
@@ -7,6 +8,7 @@ constants.py `change_date``.
 from collections import namedtuple
 from datetime import date
 from typing import Optional
+import sys, json
 
 
 # Parameters for each disposition (hospitalized, icu, ventilated)
@@ -105,3 +107,35 @@ class Parameters:
             "icu": icu,
             "ventilated": ventilated,
         }
+
+        self.print_params()
+
+    def to_dict(self):
+        d = {
+            "hospitalized": self.hospitalized,
+            "current_hospitalized": self.current_hospitalized,
+            "icu": self.icu,
+            "current_date": self.current_date.isoformat(),
+            "date_first_hospitalized": self.date_first_hospitalized,
+            "doubling_time": self.doubling_time,
+            "infectious_days": self.infectious_days,
+            "market_share": self.market_share,
+            "max_y_axis": self.max_y_axis,
+            "n_days": self.n_days,
+            "recovered": self.recovered,
+            "relative_contact_rate": self.relative_contact_rate,
+            "hospitalized": self.hospitalized,
+            "icu": self.icu,
+            "ventilated": self.ventilated,
+            "region": self.region,
+            "population": self.population,
+        }
+        return d
+
+    def print_params(self, to_file = sys.stderr):
+        d = self.to_dict()
+        print("Parameters {", file=to_file)
+        for k in d.keys():
+            print(" ", k, ":", d[k], file=to_file)
+        print("}", file=to_file)
+
