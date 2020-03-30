@@ -1,5 +1,7 @@
 # Editors
 .idea/
+.*.swp
+*~
 
 # Environments
 .env
