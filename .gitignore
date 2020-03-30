@@ -3,6 +3,9 @@
 .*.swp
 *~
 
+# Output
+*.zip
+
 # Environments
 .env
 .venv
