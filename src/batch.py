@@ -6,7 +6,7 @@ from penn_chime.settings import DEFAULTS
 from penn_chime.parameters import Parameters, Disposition
 from penn_chime.models import SimSirModel
 from sklearn.metrics import mean_squared_error
-from datetime import date
+from datetime import datetime, date
 import sys, json, re, os, os.path
 
 OUTPUT_DIR = "output"
@@ -67,11 +67,24 @@ def combine_params(base_params, region, doubling_time, relative_contact_rate):
     return p
 
 def load_hospital_census_data(report_date):
+    print("load_hospital_census_data")
     data_path = input_file_path(report_date)
-    census_df = pd.read_csv(data_path)
+    """
+    #date_parser = lambda dt: pd.datetime.strptime(dt, "%Y-%M-%D %H:%M:%S.%U")
+    census_df = pd.read_csv(data_path, parse_dates=True) # , date_parser=date_parser)
+    """
+    census_df = pd.read_csv(data_path, dtype=pd.StringDtype())
+    census_df[HOSP_DATA_COLNAME_DATE] = census_df[HOSP_DATA_COLNAME_DATE].str.rstrip("0").rstrip(".").to_datetime()
+    """
+    census_df = pd.read_csv(data_path).astype({
+        HOSP_DATA_COLNAME_DATE: "datetime64",
+        HOSP_DATA_COLNAME_TESTRESULT: pd.StringDtype(),
+        HOSP_DATA_COLNAME_TOTAL_PATS: "int32"
+    })
+    """
     is_positive = census_df[HOSP_DATA_COLNAME_TESTRESULT] == "POSITIVE"
     positive_df = census_df[is_positive]
-    grouped_df = positive_df.groupby(pd.Grouper(freq="D"))
+    grouped_df = positive_df.set_index(HOSP_DATA_COLNAME_DATE).resample("D")
     max_pos_df = grouped_df[HOSP_DATA_COLNAME_TOTAL_PATS].max()
     return max_pos_df
 
@@ -83,6 +96,7 @@ def original_variations():
     write_model_outputs_for_permutations(*param_set)
 
 def data_based_variations():
+    print("data_based_variations")
     today = date.today()
     hosp_census_df = load_hospital_census_data(today)
     patients_today = hosp_census_df[hosp_census_df[HOSP_DATA_COLNAME_DATE] == today.isoformat()].iloc[0]["Total Patients"]
@@ -96,6 +110,7 @@ def data_based_variations():
 
 def write_model_outputs_for_permutations(
             base_params, regions, doubling_times, relative_contact_rates):
+    print("write_model_outputs_for_permutations")
     for p in generate_param_permutations(
             base_params, regions, doubling_times, relative_contact_rates
             ):
@@ -103,6 +118,7 @@ def write_model_outputs_for_permutations(
 
 def find_best_fitting_params(hosp_census_df,
             base_params, regions, doubling_times, relative_contact_rates):
+    print("find_best_fitting_params")
     best_score = 1e10
     best_params = None
     hosp_dates = hosp_census_df[HOSP_DATA_COLNAME_DATE]
