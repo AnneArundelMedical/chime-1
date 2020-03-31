@@ -86,6 +86,7 @@ class Parameters:
         self.date_first_hospitalized = date_first_hospitalized
         self.doubling_time = doubling_time
         self.infectious_days = infectious_days
+        assert market_share <= 1.0
         self.market_share = market_share
         self.max_y_axis = max_y_axis
         self.n_days = n_days
