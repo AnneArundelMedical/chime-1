@@ -101,6 +101,7 @@ class Parameters:
         if self.current_date is None:
             self.current_date = date.today()
         Date(value=self.current_date)
+        assert market_share <= 1.0
 
         self.labels = {
             "hospitalized": "Hospitalized",
