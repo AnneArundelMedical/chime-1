@@ -74,6 +74,7 @@ def load_hospital_census_data(report_date):
     census_df = pd.read_csv(data_path, parse_dates=True) # , date_parser=date_parser)
     """
     census_df = pd.read_csv(data_path, dtype=pd.StringDtype())
+    d = census_df[HOSP_DATA_COLNAME_DATE].str.rstrip("0").rstrip(".").to_datetime()
     census_df[HOSP_DATA_COLNAME_DATE] = census_df[HOSP_DATA_COLNAME_DATE].str.rstrip("0").rstrip(".").to_datetime()
     """
     census_df = pd.read_csv(data_path).astype({
