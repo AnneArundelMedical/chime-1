@@ -5,6 +5,7 @@
 
 # Output
 *.zip
+/src/output
 
 # Environments
 .env
