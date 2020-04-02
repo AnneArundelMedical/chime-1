@@ -3,7 +3,7 @@
 
 import pandas as pd
 from penn_chime.settings import DEFAULTS
-from penn_chime.parameters import Parameters, Disposition
+from penn_chime.parameters import Parameters, Disposition, Regions
 from penn_chime.models import SimSirModel
 from sklearn.metrics import mean_squared_error
 from datetime import datetime, date
@@ -11,6 +11,7 @@ import sys, json, re, os, os.path
 
 OUTPUT_DIR = "output"
 INPUT_DIR = "input"
+CSV_COUNT = 0
 
 HOSP_DATA_COLNAME_DATE = "[Census.CalculatedValue]"
 HOSP_DATA_COLNAME_TOTAL_PATS = "Total Patients"
@@ -53,17 +54,23 @@ base_params = {
     "relative_contact_rate": .30,
 }
 
+ITERATION_COUNT = 0
+
 def generate_param_permutations(base_params, current_date, regions, doubling_times, relative_contact_rates):
+    perms = []
     for region in regions:
         for dt in doubling_times:
             for rcr in relative_contact_rates:
                 p = combine_params(base_params, current_date, region, dt, rcr)
-                yield p
+                perms.append(p)
+    return perms
 
 def combine_params(base_params, current_date, region, doubling_time, relative_contact_rate):
     p = dict(base_params)
     p.update(region)
     p["current_date"] = current_date
+    #print(region)
+    p["region"] = Regions(**{ region["region_name"]: region["population"] })
     p["doubling_time"] = doubling_time
     p["relative_contact_rate"] = relative_contact_rate
     return p
@@ -93,16 +100,16 @@ def load_hospital_census_data(report_date):
     #print("/FINAL")
     return max_pats_df, hosp_census_today
 
-def original_variations(today):
+def original_variations(day):
     """This is the original report that I did on the first day."""
     doubling_times = [ 3.0, 3.5, 4.0 ]
     relative_contact_rates = [ .25, .30, .40 ]
     param_set = (base_params, regions, doubling_times, relative_contact_rates)
     write_model_outputs_for_permutations(*param_set)
 
-def data_based_variations(today):
+def data_based_variations(day):
     print("data_based_variations")
-    hosp_census_df, patients_today = load_hospital_census_data(today)
+    hosp_census_df, patients_today = load_hospital_census_data(day)
     print("LOAD COMPLETE")
     print(hosp_census_df)
     print(hosp_census_df.dtypes)
@@ -111,7 +118,7 @@ def data_based_variations(today):
     base["current_hospitalized"] = patients_today
     doubling_times = ( dt/10.0 for dt in range(28, 41) )
     relative_contact_rates = ( rcr/100.0 for rcr in range(20, 51) )
-    param_set = (base_params, today, regions, doubling_times, relative_contact_rates)
+    param_set = (base_params, day, regions, doubling_times, relative_contact_rates)
     #write_model_outputs_for_permutations(*param_set)
     find_best_fitting_params(hosp_census_df, *param_set)
 
@@ -124,20 +131,24 @@ def write_model_outputs_for_permutations(
         write_model_outputs(p)
 
 def find_best_fitting_params(hosp_census_df,
-            base_params, today, regions, doubling_times, relative_contact_rates):
+            base_params, day, regions, doubling_times, relative_contact_rates):
     print("find_best_fitting_params")
     best_score = 1e10
     best_params = None
     hosp_dates = hosp_census_df.index
     print("hosp_dates\n", hosp_dates)
+    #print(list(doubling_times))
+    #print(list(relative_contact_rates))
+    #print(list(generate_param_permutations(base_params, day, regions, doubling_times, relative_contact_rates)))
     for region in regions:
         for p in generate_param_permutations(
-                base_params, today, [region], doubling_times, relative_contact_rates
-                ):
+                base_params, day, [region], list(doubling_times), list(relative_contact_rates)
+                    ):
             m = get_model_from_params(p)
-            census_df = m.census_df.dropna()
+            census_df = m.census_df
+            census_df = census_df.dropna() # remove rows with NaN values
             census_df = census_df.set_index(PENNMODEL_COLNAME_DATE);
-            census_df.to_csv("census.csv")
+            #census_df.to_csv("census.csv")
             #print("census_df\n", census_df)
             #print("census_df.dtypes\n", census_df.dtypes)
             dates_intersection = census_df.index.intersection(hosp_dates)
@@ -152,25 +163,48 @@ def find_best_fitting_params(hosp_census_df,
             if mse < best_score:
                 best_score = mse
                 best_params = p
-                print("*" * 60)
-                print("BEST SCORE: %g" % mse)
-        write_model_outputs(best_params, "Best")
-        params_filename = "PennModel_%s_%s_bestparams.json" % (date.today().isoformat(), region)
-        with open(params_filename, "w") as f:
-            json.dump({ "params": p, "mse": best_score }, f)
+                #print("*" * 60)
+                #print("BEST SCORE: %g" % mse)
+            write_fit_rows(p, m.census_df, mse)
+        #write_model_outputs(best_params, "Best")
+        #params_filename = "PennModel_%s_%s_bestparams.json" % (day.isoformat(), region)
+        #with open(params_filename, "w") as f:
+        #    json.dump({ "params": p, "mse": best_score }, f)
+
+def write_fit_rows(p, census_df, mse):
+    df = census_df.dropna().set_index(PENNMODEL_COLNAME_DATE)
+    df["region_name"] = p["region_name"]
+    df["population"] = p["population"]
+    df["market_share"] = p["market_share"]
+    df["relative_contact_rate"] = p["relative_contact_rate"]
+    df["doubling_time"] = p["doubling_time"]
+    df["mse"] = mse
+    """
+    df["hospitalized_rate"] = p["hospitalized"].rate
+    df["hospitalized_days"] = p["hospitalized"].days
+    df["icu_rate"] = p["icu"].rate
+    df["icu_days"] = p["icu"].days
+    df["ventilated_rate"] = p["ventilated"].rate
+    df["ventilated_days"] = p["ventilated"].days
+    """
+    global CSV_COUNT
+    df.to_csv("output/fit%03d.csv" % CSV_COUNT)
+    CSV_COUNT = CSV_COUNT + 1
 
 def rounded_percent(pct):
     return int(100 * pct)
 
 def get_model_from_params(parameters):
+    print("PARMETERS PRINT", parameters)
     p = dict(parameters)
     del p["region_name"]
     params_obj = Parameters(**p)
     m = SimSirModel(params_obj)
     return m
 
-def write_model_outputs(today, parameters, filename_annotation = None):
+def write_model_outputs(parameters, filename_annotation = None):
     p = parameters
+    day = p["current_date"]
     m = get_model_from_params(p)
     charts = [
         ["admits", m.admits_df],
@@ -185,7 +219,7 @@ def write_model_outputs(today, parameters, filename_annotation = None):
         int_doubling_time = rounded_percent(p["doubling_time"])
         int_rcr = rounded_percent(p["relative_contact_rate"])
         filename = ("PennModel_%s_%s_%s%s_dt%d_rc%d.csv" % (
-                today.isoformat(), p["region_name"], label, chart_name, int_doubling_time, int_rcr))
+                day.isoformat(), p["region_name"], label, chart_name, int_doubling_time, int_rcr))
         path = os.path.join(OUTPUT_DIR, filename)
         df.to_csv(path)
 
