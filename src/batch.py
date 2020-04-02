@@ -15,6 +15,7 @@ INPUT_DIR = "input"
 HOSP_DATA_COLNAME_DATE = "[Census.CalculatedValue]"
 HOSP_DATA_COLNAME_TOTAL_PATS = "Total Patients"
 HOSP_DATA_COLNAME_TESTRESULT = "Current Order Status"
+HOSP_DATA_COLNAME_TRUE_DATETIME = "TRUE_DATETIME"
 
 PENNMODEL_COLNAME_DATE = "date"
 PENNMODEL_COLNAME_HOSPITALIZED = "hospitalized"
@@ -72,10 +73,24 @@ def load_hospital_census_data(report_date):
     """
     #date_parser = lambda dt: pd.datetime.strptime(dt, "%Y-%M-%D %H:%M:%S.%U")
     census_df = pd.read_csv(data_path, parse_dates=True) # , date_parser=date_parser)
-    """
     census_df = pd.read_csv(data_path, dtype=pd.StringDtype())
-    d = census_df[HOSP_DATA_COLNAME_DATE].str.rstrip("0").rstrip(".").to_datetime()
-    census_df[HOSP_DATA_COLNAME_DATE] = census_df[HOSP_DATA_COLNAME_DATE].str.rstrip("0").rstrip(".").to_datetime()
+    """
+    census_df = pd.read_csv(data_path)
+    """
+    census_df = pd.read_csv(data_path, index_col=0, dtype={
+        HOSP_DATA_COLNAME_DATE: pd.StringDtype,
+        HOSP_DATA_COLNAME_TESTRESULT: pd.StringDtype,
+        HOSP_DATA_COLNAME_TOTAL_PATS: pd.StringDtype, # pd.Int32Dtype,
+        })
+    """
+    print(census_df)
+    print(census_df.dtypes)
+    datetime_column = pd.to_datetime(census_df[HOSP_DATA_COLNAME_DATE], format="%Y-%m-%d %H:%M:%S")
+    print(datetime_column)
+    census_df[HOSP_DATA_COLNAME_TRUE_DATETIME] = datetime_column
+    print(census_df)
+    #d = census_df[HOSP_DATA_COLNAME_DATE].str.rstrip("0").rstrip(".").to_datetime()
+    #census_df[HOSP_DATA_COLNAME_DATE] = census_df[HOSP_DATA_COLNAME_DATE].str.rstrip("0").rstrip(".").to_datetime()
     """
     census_df = pd.read_csv(data_path).astype({
         HOSP_DATA_COLNAME_DATE: "datetime64",
@@ -85,7 +100,7 @@ def load_hospital_census_data(report_date):
     """
     is_positive = census_df[HOSP_DATA_COLNAME_TESTRESULT] == "POSITIVE"
     positive_df = census_df[is_positive]
-    grouped_df = positive_df.set_index(HOSP_DATA_COLNAME_DATE).resample("D")
+    grouped_df = positive_df.set_index(HOSP_DATA_COLNAME_TRUE_DATETIME).resample("D")
     max_pos_df = grouped_df[HOSP_DATA_COLNAME_TOTAL_PATS].max()
     return max_pos_df
 
@@ -100,7 +115,17 @@ def data_based_variations():
     print("data_based_variations")
     today = date.today()
     hosp_census_df = load_hospital_census_data(today)
-    patients_today = hosp_census_df[hosp_census_df[HOSP_DATA_COLNAME_DATE] == today.isoformat()].iloc[0]["Total Patients"]
+    print("LOAD COMPLETE")
+    print(hosp_census_df)
+    print(hosp_census_df.dtypes)
+    hosp_census_today_df = hosp_census_df.filter([today])
+    print(hosp_census_today_df)
+    date_is_today_df = hosp_census_df[HOSP_DATA_COLNAME_TRUE_DATETIME] == today.isoformat()
+    print(date_is_today_df)
+    today_df = hosp_census_df[date_is_today_df]
+    print(today_df)
+    iloc0 = patients_today = date_is_today_df.iloc[0]
+    iloc0[HOSP_DATA_COLNAME_TOTAL_PATS]
     base = dict(base_params)
     base["current_hospitalized"] = patients_today
     doubling_times = ( dt/10.0 for dt in range(28, 41) )
@@ -173,6 +198,7 @@ def write_model_outputs(parameters, filename_annotation = None):
         df.to_csv(path)
 
 if __name__ == "__main__":
+    print("Pandas version:", pd.__version__)
     #original_variations()
     data_based_variations()
 
