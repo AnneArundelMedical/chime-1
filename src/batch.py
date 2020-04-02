@@ -63,8 +63,8 @@ def generate_param_permutations(base_params, regions, doubling_times, relative_c
 def combine_params(base_params, region, doubling_time, relative_contact_rate):
     p = dict(base_params)
     p.update(region)
-    p["doubling_time"] = dt
-    p["relative_contact_rate"] = rcr
+    p["doubling_time"] = doubling_time
+    p["relative_contact_rate"] = relative_contact_rate
     return p
 
 def load_hospital_census_data(report_date):
@@ -120,12 +120,8 @@ def data_based_variations():
     print(hosp_census_df.dtypes)
     hosp_census_today_df = hosp_census_df.filter([today])
     print(hosp_census_today_df)
-    date_is_today_df = hosp_census_df[HOSP_DATA_COLNAME_TRUE_DATETIME] == today.isoformat()
-    print(date_is_today_df)
-    today_df = hosp_census_df[date_is_today_df]
-    print(today_df)
-    iloc0 = patients_today = date_is_today_df.iloc[0]
-    iloc0[HOSP_DATA_COLNAME_TOTAL_PATS]
+    patients_today = hosp_census_today_df[0]
+    print("Patients today: %s" % patients_today)
     base = dict(base_params)
     base["current_hospitalized"] = patients_today
     doubling_times = ( dt/10.0 for dt in range(28, 41) )
@@ -178,6 +174,7 @@ def get_model_from_params(parameters):
     return m
 
 def write_model_outputs(parameters, filename_annotation = None):
+    today = date.today()
     p = parameters
     m = get_model_from_params(p)
     charts = [
