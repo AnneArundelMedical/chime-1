@@ -111,7 +111,12 @@ def load_hospital_census_data(report_date):
     max_pats_series = grouped_df[HOSP_DATA_COLNAME_TOTAL_PATS].max()
     print("MAX PATS DF")
     print(max_pats_series)
-    hosp_census_today = max_pats_series.filter([report_date])[0]
+    hosp_census_today_series = max_pats_series.filter([report_date])
+    try:
+        hosp_census_today = hosp_census_today_series[0]
+    except IndexError:
+        raise Exception("Input file does not contain the report date. Date=%s, File=%s" % (
+                report_date.isoformat(), data_path))
     print("Patients on report date: %s" % hosp_census_today)
     print("to_frame")
     max_pats_df = max_pats_series.to_frame()
