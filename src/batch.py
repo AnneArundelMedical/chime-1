@@ -159,36 +159,35 @@ def find_best_fitting_params(hosp_census_df,
     #print(list(doubling_times))
     #print(list(relative_contact_rates))
     #print(list(generate_param_permutations(base_params, day, regions, doubling_times, relative_contact_rates)))
-    for region in regions:
-        for p in generate_param_permutations(
-                base_params, day, [region], list(doubling_times), list(relative_contact_rates)
-                    ):
-            m = get_model_from_params(p)
-            census_df = m.census_df
-            census_df = census_df.dropna() # remove rows with NaN values
-            census_df = census_df.set_index(PENNMODEL_COLNAME_DATE);
-            #census_df.to_csv("census.csv")
-            #print("census_df\n", census_df)
-            #print("census_df.dtypes\n", census_df.dtypes)
-            dates_intersection = census_df.index.intersection(hosp_dates)
-            matched_pred_census_df = census_df.loc[dates_intersection]
-            #print("matched_pred_census_df\n", matched_pred_census_df)
-            matched_hosp_census_df = hosp_census_df.loc[dates_intersection]
-            #print("matched_hosp_census_df\n", matched_hosp_census_df)
-            mse = mean_squared_error(
-                matched_hosp_census_df[HOSP_DATA_COLNAME_TOTAL_PATS], 
-                matched_pred_census_df[PENNMODEL_COLNAME_HOSPITALIZED]
-                )
-            if mse < best_score:
-                best_score = mse
-                best_params = p
-                #print("*" * 60)
-                #print("BEST SCORE: %g" % mse)
-            write_fit_rows(p, m.census_df, mse)
-        #write_model_outputs(best_params, "Best")
-        #params_filename = "PennModel_%s_%s_bestparams.json" % (day.isoformat(), region)
-        #with open(params_filename, "w") as f:
-        #    json.dump({ "params": p, "mse": best_score }, f)
+    for p in generate_param_permutations(
+            base_params, day, regions, list(doubling_times), list(relative_contact_rates)
+                ):
+        m = get_model_from_params(p)
+        census_df = m.census_df
+        census_df = census_df.dropna() # remove rows with NaN values
+        census_df = census_df.set_index(PENNMODEL_COLNAME_DATE);
+        #census_df.to_csv("census.csv")
+        #print("census_df\n", census_df)
+        #print("census_df.dtypes\n", census_df.dtypes)
+        dates_intersection = census_df.index.intersection(hosp_dates)
+        matched_pred_census_df = census_df.loc[dates_intersection]
+        #print("matched_pred_census_df\n", matched_pred_census_df)
+        matched_hosp_census_df = hosp_census_df.loc[dates_intersection]
+        #print("matched_hosp_census_df\n", matched_hosp_census_df)
+        mse = mean_squared_error(
+            matched_hosp_census_df[HOSP_DATA_COLNAME_TOTAL_PATS], 
+            matched_pred_census_df[PENNMODEL_COLNAME_HOSPITALIZED]
+            )
+        if mse < best_score:
+            best_score = mse
+            best_params = p
+            #print("*" * 60)
+            #print("BEST SCORE: %g" % mse)
+        write_fit_rows(p, m.census_df, mse)
+    #write_model_outputs(best_params, "Best")
+    #params_filename = "PennModel_%s_%s_bestparams.json" % (day.isoformat(), region)
+    #with open(params_filename, "w") as f:
+    #    json.dump({ "params": p, "mse": best_score }, f)
 
 def write_fit_rows(p, census_df, mse):
     df = census_df.dropna().set_index(PENNMODEL_COLNAME_DATE)
