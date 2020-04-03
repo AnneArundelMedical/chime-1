@@ -31,7 +31,7 @@ def main():
     with open(output_filename, "w") as f_out:
         with open(input_filenames[0], "r") as f_in:
             for line in f_in.readlines():
-                print(line, file=f_out)
+                print(line.rstrip(), file=f_out)
         for input_filename in input_filenames:
             with open(input_filenames[0], "r") as f_in:
                 is_first = True
@@ -39,7 +39,7 @@ def main():
                     if is_first:
                         is_first = False
                     else:
-                        print(line, file=f_out)
+                        print(line.rstrip(), file=f_out)
 
 if __name__ == "__main__":
     main()
