@@ -11,7 +11,6 @@ import sys, json, re, os, os.path
 
 OUTPUT_DIR = "output"
 INPUT_DIR = "input"
-CSV_COUNT = 0
 
 HOSP_DATA_COLNAME_DATE = "[Census.CalculatedValue]"
 HOSP_DATA_COLNAME_TOTAL_PATS = "Total Patients"
@@ -24,6 +23,26 @@ PENNMODEL_COLNAME_HOSPITALIZED = "hospitalized"
 def input_file_path(file_date):
     filename = "CovidTestedCensus_%s.csv" % file_date.isoformat()
     return os.path.join(INPUT_DIR, filename)
+
+def output_file_path(main_label, sub_label, chart_name, parameters):
+    p = parameters
+    if sub_label is None:
+        sub_label_ext = ""
+    else:
+        sub_label_ext = sub_label + "_"
+    int_doubling_time = rounded_percent(p["doubling_time"])
+    int_rcr = rounded_percent(p["relative_contact_rate"])
+    filename = ("%s_%s_%s_%s%s_dt%d_rc%d.csv" % (
+        main_label,
+        p["current_date"].isoformat(),
+        p["region_name"],
+        sub_label_ext,
+        chart_name,
+        int_doubling_time,
+        int_rcr
+        ))
+    path = os.path.join(OUTPUT_DIR, filename)
+    return path
 
 # Population from www.census.gov, 2019-07-01 estimate (V2019).
 # Example link: https://www.census.gov/quickfacts/annearundelcountymaryland
@@ -187,9 +206,8 @@ def write_fit_rows(p, census_df, mse):
     df["ventilated_rate"] = p["ventilated"].rate
     df["ventilated_days"] = p["ventilated"].days
     """
-    global CSV_COUNT
-    df.to_csv("output/fit%03d.csv" % CSV_COUNT)
-    CSV_COUNT = CSV_COUNT + 1
+    path = output_file_path("PennModelFit", None, "census", p)
+    df.to_csv(path)
 
 def rounded_percent(pct):
     return int(100 * pct)
@@ -211,16 +229,8 @@ def write_model_outputs(parameters, filename_annotation = None):
         ["census", m.census_df],
         ["simsir", m.sim_sir_w_date_df]
     ]
-    if filename_annotation is None:
-        label = ""
-    else:
-        label = filename_annotation + "_"
     for chart_name, df in charts:
-        int_doubling_time = rounded_percent(p["doubling_time"])
-        int_rcr = rounded_percent(p["relative_contact_rate"])
-        filename = ("PennModel_%s_%s_%s%s_dt%d_rc%d.csv" % (
-                day.isoformat(), p["region_name"], label, chart_name, int_doubling_time, int_rcr))
-        path = os.path.join(OUTPUT_DIR, filename)
+        path = output_file_path("PennModel", filename_annotation, chart_name, p)
         df.to_csv(path)
 
 if __name__ == "__main__":
