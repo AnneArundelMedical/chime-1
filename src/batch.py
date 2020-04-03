@@ -166,9 +166,9 @@ def find_best_fitting_params(hosp_census_df,
                 ):
         m = get_model_from_params(p)
         census_df = m.census_df
+        census_df.to_csv(os.path.join(OUTPUT_DIR, "debug-model-census-dump.csv"))
         census_df = census_df.dropna() # remove rows with NaN values
         census_df = census_df.set_index(PENNMODEL_COLNAME_DATE);
-        #census_df.to_csv("census.csv")
         #print("census_df\n", census_df)
         #print("census_df.dtypes\n", census_df.dtypes)
         dates_intersection = census_df.index.intersection(hosp_dates)
