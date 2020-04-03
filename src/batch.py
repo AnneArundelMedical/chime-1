@@ -30,12 +30,14 @@ def output_file_path(main_label, sub_label, chart_name, parameters):
         sub_label_ext = ""
     else:
         sub_label_ext = sub_label + "_"
+    region_name = p["region_name"]
+    region_name_tidy = re.sub(r"[ ']", "", region_name)
     int_doubling_time = rounded_percent(p["doubling_time"])
     int_rcr = rounded_percent(p["relative_contact_rate"])
     filename = ("%s_%s_%s_%s%s_dt%d_rc%d.csv" % (
         main_label,
         p["current_date"].isoformat(),
-        p["region_name"],
+        region_name_tidy,
         sub_label_ext,
         chart_name,
         int_doubling_time,
