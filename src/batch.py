@@ -191,6 +191,10 @@ def find_best_fitting_params(hosp_census_df,
             #print("*" * 60)
             #print("BEST SCORE: %g" % mse)
         write_fit_rows(p, m.census_df, mse)
+    try:
+        print("BEST PARAMS:", best_params)
+    except Exception as e:
+        print("(printing error: %s)" % str(e))
     #write_model_outputs(best_params, "Best")
     #params_filename = "PennModel_%s_%s_bestparams.json" % (day.isoformat(), region)
     #with open(params_filename, "w") as f:
