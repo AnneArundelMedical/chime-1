@@ -2,7 +2,7 @@
 # vim: et ts=8 sts=4 sw=4
 
 import pandas as pd
-from penn_chime.settings import DEFAULTS
+#from penn_chime.settings import get_defaults
 from penn_chime.parameters import Parameters, Disposition, Regions
 from penn_chime.models import SimSirModel
 from sklearn.metrics import mean_squared_error
@@ -18,7 +18,7 @@ HOSP_DATA_COLNAME_TESTRESULT = "Current Order Status"
 HOSP_DATA_COLNAME_TRUE_DATETIME = "TRUE_DATETIME"
 
 PENNMODEL_COLNAME_DATE = "date"
-PENNMODEL_COLNAME_HOSPITALIZED = "hospitalized"
+PENNMODEL_COLNAME_HOSPITALIZED = "census_hospitalized"
 
 def input_file_path(file_date):
     filename = "CovidTestedCensus_%s.csv" % file_date.isoformat()
@@ -104,7 +104,6 @@ def load_hospital_census_data(report_date):
     datetime_column = pd.to_datetime(census_df[HOSP_DATA_COLNAME_DATE], format="%Y-%m-%d %H:%M:%S")
     #print(datetime_column)
     census_df[HOSP_DATA_COLNAME_TRUE_DATETIME] = datetime_column
-    #print(census_df)
     is_positive = census_df[HOSP_DATA_COLNAME_TESTRESULT] == "POSITIVE"
     positive_df = census_df[is_positive]
     grouped_df = positive_df.set_index(HOSP_DATA_COLNAME_TRUE_DATETIME).resample("D")
@@ -171,6 +170,7 @@ def find_best_fitting_params(hosp_census_df,
                 ):
         m = get_model_from_params(p)
         census_df = m.census_df
+        #print("census_df\n", census_df)
         census_df.to_csv(os.path.join(OUTPUT_DIR, "debug-model-census-dump.csv"))
         census_df = census_df.dropna() # remove rows with NaN values
         census_df = census_df.set_index(PENNMODEL_COLNAME_DATE);

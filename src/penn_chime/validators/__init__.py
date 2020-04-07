@@ -1,12 +1,13 @@
 """the callable validator design pattern"""
 
-from .validators import EPSILON, OptionalValue, Bounded, OptionalBounded, Rate, Date, OptionalDate, ValDisposition
+from .validators import EPSILON, OptionalValue, Bounded, OptionalBounded, Rate, Date, OptionalDate, ValDisposition, StrictlyPositiveRate
 
 OptionalValue = OptionalValue()
 OptionalStrictlyPositive = OptionalBounded(lower_bound=EPSILON)
 StrictlyPositive = Bounded(lower_bound=EPSILON)
 Positive = Bounded(lower_bound=-EPSILON)
 Rate = Rate()  # type: ignore
+StrictlyPositiveRate = StrictlyPositiveRate()  # type: ignore
 Date = Date()  # type: ignore
 OptionalDate = OptionalDate()  # type: ignore
 ValDisposition = ValDisposition()
