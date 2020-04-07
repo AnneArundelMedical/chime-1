@@ -63,6 +63,16 @@ class Rate(Validator):
         if 0 > value or value > 1:
             raise ValueError(f"{value} needs to be a rate (i.e. in [0,1]).")
 
+class StrictlyPositiveRate(Rate):
+    """A rate in (0,1]."""
+    def __init__(self) -> None:
+        pass
+
+    def validate(self, value):
+        Rate.validate(self, value)
+        if value < 0:
+            raise ValueError(f"{value} needs to be a rate greater than zero.")
+
 class Date(Validator):
     """A date of some sort."""
     def __init__(self) -> None:

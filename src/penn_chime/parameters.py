@@ -11,7 +11,7 @@ from typing import Optional
 import sys, json
 
 from .validators import (
-    OptionalValue, Positive, OptionalStrictlyPositive, StrictlyPositive, Rate, Date, OptionalDate, ValDisposition
+    OptionalValue, Positive, OptionalStrictlyPositive, StrictlyPositive, Rate, StrictlyPositiveRate, Date, OptionalDate, ValDisposition
     )
 
 # Parameters for each disposition (hospitalized, icu, ventilated)
@@ -60,7 +60,7 @@ ACCEPTED_PARAMETERS = {
     "relative_contact_rate": (Rate, None, float, "Social distancing reduction rate: 0.0 - 1.0"),
     "mitigation_date": (OptionalDate, None, cast_date, "Date on which social distancing measures too effect"),
     "infectious_days": (StrictlyPositive, 14, int, "Infectious days"),
-    "market_share": (Rate, 1.0, float, "Hospital market share (0.00001 - 1.0)"),
+    "market_share": (StrictlyPositiveRate, 1.0, float, "Hospital market share (0.00001 - 1.0)"),
     "max_y_axis": (OptionalStrictlyPositive, None, int, None),
     "n_days": (StrictlyPositive, 100, int, "Number of days to project >= 0"),
     "recovered": (Positive, 0, int, "Number of patients already recovered (not yet implemented)"),
@@ -101,7 +101,6 @@ class Parameters:
         if self.current_date is None:
             self.current_date = date.today()
         Date(value=self.current_date)
-        assert market_share <= 1.0
 
         self.labels = {
             "hospitalized": "Hospitalized",
