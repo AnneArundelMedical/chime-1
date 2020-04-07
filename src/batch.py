@@ -3,14 +3,28 @@
 
 import pandas as pd
 #from penn_chime.settings import get_defaults
+import penn_chime.parameters
 from penn_chime.parameters import Parameters, Disposition, Regions
-from penn_chime.models import SimSirModel
+import penn_chime.models
 from sklearn.metrics import mean_squared_error
-from datetime import datetime, date
+import datetime
 import sys, json, re, os, os.path
+import logging
 
 OUTPUT_DIR = "output"
 INPUT_DIR = "input"
+
+penn_chime.parameters.PRINT_PARAMS = False
+penn_chime.models.logger.setLevel(logging.CRITICAL)
+
+VARYING_PARAMS = {
+    "doubling_time":
+        list( dt/10.0 for dt in range(28, 41, 2) ),
+    "relative_contact_rate":
+        list( rcr/100.0 for rcr in range(20, 51, 2) ),
+    "mitigation_date":
+        list( datetime.date(2020, 3, 1) + datetime.timedelta(n) for n in range(0, 41) ),
+}
 
 HOSP_DATA_COLNAME_DATE = "[Census.CalculatedValue]"
 HOSP_DATA_COLNAME_TOTAL_PATS = "Total Patients"
@@ -34,14 +48,16 @@ def output_file_path(main_label, sub_label, chart_name, parameters):
     region_name_tidy = re.sub(r"[ ']", "", region_name)
     int_doubling_time = rounded_percent(p["doubling_time"])
     int_rcr = rounded_percent(p["relative_contact_rate"])
-    filename = ("%s_%s_%s_%s%s_dt%d_rc%d.csv" % (
+    str_mitigation_date = p["mitigation_date"].isoformat().replace("-", "")
+    filename = ("%s_%s_%s_%s%s_dt%d_rc%d_md%s.csv" % (
         main_label,
         p["current_date"].isoformat(),
         region_name_tidy,
         sub_label_ext,
         chart_name,
         int_doubling_time,
-        int_rcr
+        int_rcr,
+        str_mitigation_date,
         ))
     path = os.path.join(OUTPUT_DIR, filename)
     return path
@@ -62,7 +78,7 @@ base_params = {
     "icu": Disposition(.013, 10),
     "relative_contact_rate": .30,
     "ventilated": Disposition(.007, 10),
-    "current_date": date.today(),
+    "current_date": datetime.date.today(),
     #"date_first_hospitalized": date.fromisoformat("2020-03-12"),
     "doubling_time": 3.0,
     "infectious_days": 14,
@@ -77,16 +93,21 @@ base_params = {
 
 ITERATION_COUNT = 0
 
-def generate_param_permutations(base_params, current_date, regions, doubling_times, relative_contact_rates):
+def generate_param_permutations(
+        base_params, current_date, regions, doubling_times,
+        relative_contact_rates, mitigation_dates
+        ):
     perms = []
     for region in regions:
         for dt in doubling_times:
             for rcr in relative_contact_rates:
-                p = combine_params(base_params, current_date, region, dt, rcr)
-                perms.append(p)
+                for md in mitigation_dates:
+                    p = combine_params(base_params, current_date, region, dt, rcr, md)
+                    perms.append(p)
     return perms
 
-def combine_params(base_params, current_date, region, doubling_time, relative_contact_rate):
+def combine_params(base_params, current_date, region, doubling_time,
+        relative_contact_rate, mitigation_date):
     p = dict(base_params)
     p.update(region)
     p["current_date"] = current_date
@@ -94,6 +115,7 @@ def combine_params(base_params, current_date, region, doubling_time, relative_co
     p["region"] = Regions(**{ region["region_name"]: region["population"] })
     p["doubling_time"] = doubling_time
     p["relative_contact_rate"] = relative_contact_rate
+    p["mitigation_date"] = mitigation_date
     return p
 
 def load_hospital_census_data(report_date):
@@ -141,33 +163,45 @@ def data_based_variations(day):
     print("Patients today: %s" % patients_today)
     base = dict(base_params)
     base["current_hospitalized"] = patients_today
-    doubling_times = ( dt/10.0 for dt in range(28, 41) )
-    relative_contact_rates = ( rcr/100.0 for rcr in range(20, 51) )
-    param_set = (base_params, day, regions, doubling_times, relative_contact_rates)
+    doubling_times = VARYING_PARAMS["doubling_time"]
+    relative_contact_rates = VARYING_PARAMS["relative_contact_rate"]
+    mitigation_dates = VARYING_PARAMS["mitigation_date"]
+    param_set = (
+            base_params, day, regions, doubling_times,
+            relative_contact_rates, mitigation_dates
+            )
     #write_model_outputs_for_permutations(*param_set)
     find_best_fitting_params(hosp_census_df, *param_set)
 
 def write_model_outputs_for_permutations(
-            base_params, current_date, regions, doubling_times, relative_contact_rates):
+            base_params, current_date, regions, doubling_times,
+            relative_contact_rates, mitigation_dates
+            ):
     print("write_model_outputs_for_permutations")
     for p in generate_param_permutations(
-            base_params, current_date, regions, doubling_times, relative_contact_rates
+            base_params, current_date, regions, doubling_times,
+            relative_contact_rates, mitigation_dates,
             ):
         write_model_outputs(p)
 
 def find_best_fitting_params(hosp_census_df,
-            base_params, day, regions, doubling_times, relative_contact_rates):
+            base_params, day, regions, doubling_times,
+            relative_contact_rates, mitigation_dates):
     print("find_best_fitting_params")
-    best_score = 1e10
-    best_params = None
-    hosp_dates = hosp_census_df.index
+    best = {}
+    for region in regions:
+        region_name = region["region_name"]
+        best[region_name] = { "score": 1e10, "params": None }
+    hosp_dates = hosp_census_df.dropna().index
     print("hosp_dates\n", hosp_dates)
     #print(list(doubling_times))
     #print(list(relative_contact_rates))
     #print(list(generate_param_permutations(base_params, day, regions, doubling_times, relative_contact_rates)))
     for p in generate_param_permutations(
-            base_params, day, regions, list(doubling_times), list(relative_contact_rates)
-                ):
+            base_params, day, regions, list(doubling_times),
+            list(relative_contact_rates), mitigation_dates
+            ):
+        region_name = p["region_name"]
         m = get_model_from_params(p)
         census_df = m.census_df
         #print("census_df\n", census_df)
@@ -181,18 +215,24 @@ def find_best_fitting_params(hosp_census_df,
         #print("matched_pred_census_df\n", matched_pred_census_df)
         matched_hosp_census_df = hosp_census_df.loc[dates_intersection]
         #print("matched_hosp_census_df\n", matched_hosp_census_df)
+        #print("mse")
+        #print(matched_hosp_census_df[HOSP_DATA_COLNAME_TOTAL_PATS])
+        #print(matched_pred_census_df[PENNMODEL_COLNAME_HOSPITALIZED])
         mse = mean_squared_error(
             matched_hosp_census_df[HOSP_DATA_COLNAME_TOTAL_PATS], 
             matched_pred_census_df[PENNMODEL_COLNAME_HOSPITALIZED]
             )
-        if mse < best_score:
-            best_score = mse
-            best_params = p
+        if mse < best[region_name]["score"]:
+            best[region_name]["score"] = mse
+            best[region_name]["params"] = p
             #print("*" * 60)
             #print("BEST SCORE: %g" % mse)
         write_fit_rows(p, m.census_df, mse)
     try:
-        print("BEST PARAMS:", best_params)
+        print("BEST PARAMS:")
+        for (region_name, b) in best.items():
+            print("Best params for region:", region_name)
+            print(b["params"])
     except Exception as e:
         print("(printing error: %s)" % str(e))
     #write_model_outputs(best_params, "Best")
@@ -223,11 +263,11 @@ def rounded_percent(pct):
     return int(100 * pct)
 
 def get_model_from_params(parameters):
-    print("PARMETERS PRINT", parameters)
+    #print("PARAMETERS PRINT", parameters)
     p = dict(parameters)
     del p["region_name"]
     params_obj = Parameters(**p)
-    m = SimSirModel(params_obj)
+    m = penn_chime.models.SimSirModel(params_obj)
     return m
 
 def write_model_outputs(parameters, filename_annotation = None):
@@ -245,9 +285,9 @@ def write_model_outputs(parameters, filename_annotation = None):
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
-        today_override = date.fromisoformat(sys.argv[1])
+        today_override = datetime.date.fromisoformat(sys.argv[1])
     else:
-        today_override = date.today()
+        today_override = datetime.date.today()
     print("Pandas version:", pd.__version__)
     #original_variations()
     data_based_variations(today_override)

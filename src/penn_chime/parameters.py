@@ -10,6 +10,8 @@ from datetime import date, datetime
 from typing import Optional
 import sys, json
 
+PRINT_PARAMS = False
+
 from .validators import (
     OptionalValue, Positive, OptionalStrictlyPositive, StrictlyPositive, Rate, StrictlyPositiveRate, Date, OptionalDate, ValDisposition
     )
@@ -119,7 +121,8 @@ class Parameters:
             "ventilated": self.ventilated,
         }
 
-        self.print_params()
+        if PRINT_PARAMS:
+            self.print_params()
 
     def to_dict(self):
         d = {
