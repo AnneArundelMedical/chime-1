@@ -249,6 +249,7 @@ def write_fit_rows(p, census_df, mse):
     df["doubling_time"] = p["doubling_time"]
     df["mitigation_date"] = p["mitigation_date"]
     df["mse"] = mse
+    df["run_date"] = p["current_date"]
     """
     df["hospitalized_rate"] = p["hospitalized"].rate
     df["hospitalized_days"] = p["hospitalized"].days
