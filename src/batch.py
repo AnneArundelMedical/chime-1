@@ -247,6 +247,7 @@ def write_fit_rows(p, census_df, mse):
     df["market_share"] = p["market_share"]
     df["relative_contact_rate"] = p["relative_contact_rate"]
     df["doubling_time"] = p["doubling_time"]
+    df["mitigation_date"] = p["mitigation_date"]
     df["mse"] = mse
     """
     df["hospitalized_rate"] = p["hospitalized"].rate
