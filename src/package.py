@@ -1,6 +1,8 @@
-#!/usr/bin
+#!/usr/bin/python3
 
 import sys, os, re, os.path, datetime, glob
+
+USAGE = "package.py <input_file_prefix> <date_iso_format>"
 
 class Args:
 
@@ -26,6 +28,9 @@ def main():
         date = datetime.date.today()
     else:
         date = datetime.date.fromisoformat(date)
+    if args.next():
+        print(USAGE)
+        sys.exit(1)
     input_filenames = glob.glob("output/%s_%s_*.csv" % (prefix, date))
     output_filename = "output/Package_%s_%s.csv" % (prefix, date)
     with open(output_filename, "w") as f_out:
