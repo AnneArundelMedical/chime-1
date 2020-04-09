@@ -19,9 +19,9 @@ penn_chime.models.logger.setLevel(logging.CRITICAL)
 
 VARYING_PARAMS = {
     "doubling_time":
-        list( dt/10.0 for dt in range(28, 41, 2) ),
+        list( dt/10.0 for dt in range(20, 41, 2) ),
     "relative_contact_rate":
-        list( rcr/100.0 for rcr in range(20, 51, 2) ),
+        list( rcr/100.0 for rcr in range(15, 71, 5) ),
     "mitigation_date":
         list( datetime.date(2020, 3, 1) + datetime.timedelta(n) for n in range(0, 41) ),
 }
