@@ -251,7 +251,12 @@ def data_based_variations(day):
             relative_contact_rates, mitigation_dates
             )
     #write_model_outputs_for_permutations(*param_set)
+    start_time = datetime.datetime.now()
+    print("Beginning fit: %s" % start_time.isoformat())
     find_best_fitting_params(hosp_census_df, *param_set)
+    compl_time = datetime.datetime.now()
+    print("Completed fit: %s" % compl_time.isoformat())
+    print("Elapsed time:", (compl_time - start_time).total_seconds)
 
 def write_model_outputs_for_permutations(
             base_params, current_date, regions, doubling_times,
