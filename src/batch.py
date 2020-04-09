@@ -100,18 +100,21 @@ def generate_param_permutations(
         base_params, current_date, regions, doubling_times,
         relative_contact_rates, mitigation_dates
         ):
+    param_set_id = 0
     params = []
     for region in regions:
         for dt in doubling_times:
             for rcr in relative_contact_rates:
                 for md in mitigation_dates:
-                    p = combine_params(base_params, current_date, region, dt, rcr, md)
+                    param_set_id = param_set_id + 1
+                    p = combine_params(param_set_id, base_params, current_date, region, dt, rcr, md)
                     params.append(p)
     return params
 
-def combine_params(base_params, current_date, region, doubling_time,
+def combine_params(param_set_id, base_params, current_date, region, doubling_time,
         relative_contact_rate, mitigation_date):
     p = { **base_params, **region }
+    p["param_set_id"] = param_set_id
     p["current_date"] = current_date
     p["doubling_time"] = doubling_time
     p["relative_contact_rate"] = relative_contact_rate
@@ -343,6 +346,7 @@ def write_fit_rows(p, census_df, mse, is_first_batch, output_file):
     df["mitigation_date"] = p["mitigation_date"]
     df["mse"] = mse
     df["run_date"] = p["current_date"]
+    df["param_set_id"] = p["param_set_id"]
     """
     df["hospitalized_rate"] = p["hospitalized"].rate
     df["hospitalized_days"] = p["hospitalized"].days
@@ -364,6 +368,7 @@ def get_model_from_params(parameters):
     p = { **parameters }
     p["region"] = Regions(**{ p["region_name"]: p["population"] })
     del p["region_name"]
+    del p["param_set_id"]
     params_obj = Parameters(**p)
     m = penn_chime.models.SimSirModel(params_obj)
     return m
