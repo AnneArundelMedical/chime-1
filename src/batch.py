@@ -102,10 +102,12 @@ def generate_param_permutations(
         ):
     param_set_id = 0
     params = []
-    for region in regions:
-        for dt in doubling_times:
-            for rcr in relative_contact_rates:
-                for md in mitigation_dates:
+    # Important: regions must be the innermost loop because we compile
+    # results from all regions on each iteration.
+    for dt in doubling_times:
+        for rcr in relative_contact_rates:
+            for md in mitigation_dates:
+                for region in regions:
                     param_set_id = param_set_id + 1
                     p = combine_params(param_set_id, base_params, current_date, region, dt, rcr, md)
                     params.append(p)
@@ -295,6 +297,7 @@ def find_best_fitting_params(hosp_census_df,
     is_first_batch = True
     output_file_path = os.path.join(OUTPUT_DIR, "PennModelFit_Combined_%s.csv" % day.isoformat())
     with open(output_file_path, "w") as output_file:
+        region_results = {}
         for p in params_list:
             region_name = p["region_name"]
             m = get_model_from_params(p)
@@ -313,16 +316,14 @@ def find_best_fitting_params(hosp_census_df,
             #print("mse")
             #print(matched_hosp_census_df[HOSP_DATA_COLNAME_TOTAL_PATS])
             #print(matched_pred_census_df[PENNMODEL_COLNAME_HOSPITALIZED])
-            mse = mean_squared_error(
-                matched_hosp_census_df[HOSP_DATA_COLNAME_TOTAL_PATS], 
-                matched_pred_census_df[PENNMODEL_COLNAME_HOSPITALIZED]
-                )
-            if mse < best[region_name]["score"]:
-                best[region_name]["score"] = mse
-                best[region_name]["params"] = p
-                #print("*" * 60)
-                #print("BEST SCORE: %g" % mse)
-            write_fit_rows(p, m.census_df, mse, is_first_batch, output_file)
+            if region_name in region_results:
+                predict_for_all_regions(region_results)
+                region_results = {}
+            region_results[region_name] = (
+                m.census_df,
+                matched_hosp_census_df,
+                matched_pred_census_df
+            )
             is_first_batch = False
         try:
             print("BEST PARAMS:")
@@ -335,6 +336,36 @@ def find_best_fitting_params(hosp_census_df,
         #params_filename = "PennModel_%s_%s_bestparams.json" % (day.isoformat(), region)
         #with open(params_filename, "w") as f:
         #    json.dump({ "params": p, "mse": best_score }, f)
+
+def predict_for_all_regions(region_results, is_first_batch):
+    region_results_list = region_results.values()
+    compiled_results_df = region_results_list[0]
+    for next_region_result in region_results_list[1:]:
+        for i in range(2):
+            compiled_results_df[i] = compiled_results_df[i].append(next_region_result[i])
+    actual_df = (
+        compiled_results_df[0]
+        .resample("D")[HOSP_DATA_COLNAME_TOTAL_PATS]
+        .sum()
+    )
+    predict_df = (
+        compiled_results_df[1]
+        .resample("D")[PENNMODEL_COLNAME_HOSPITALIZED]
+        .sum()
+    )
+    mse = mean_squared_error(
+        actual_df[HOSP_DATA_COLNAME_TOTAL_PATS], 
+        predict_df[PENNMODEL_COLNAME_HOSPITALIZED]
+    )
+    write_fit_rows(p, compiled_results_df[1], mse, is_first_batch, output_file)
+
+"""
+    if mse < best[region_name]["score"]:
+        best[region_name]["score"] = mse
+        best[region_name]["params"] = p
+        #print("*" * 60)
+        #print("BEST SCORE: %g" % mse)
+"""
 
 def write_fit_rows(p, census_df, mse, is_first_batch, output_file):
     df = census_df.dropna().set_index(PENNMODEL_COLNAME_DATE)
