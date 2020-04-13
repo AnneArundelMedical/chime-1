@@ -317,14 +317,14 @@ def find_best_fitting_params(hosp_census_df,
             #print(matched_hosp_census_df[HOSP_DATA_COLNAME_TOTAL_PATS])
             #print(matched_pred_census_df[PENNMODEL_COLNAME_HOSPITALIZED])
             if region_name in region_results:
-                predict_for_all_regions(region_results)
+                predict_for_all_regions(p, region_results, is_first_batch, output_file)
+                is_first_batch = False
                 region_results = {}
             region_results[region_name] = (
                 m.census_df,
                 matched_hosp_census_df,
                 matched_pred_census_df
             )
-            is_first_batch = False
         try:
             print("BEST PARAMS:")
             for (region_name, b) in best.items():
@@ -332,32 +332,32 @@ def find_best_fitting_params(hosp_census_df,
                 print(b["params"])
         except Exception as e:
             print("(printing error: %s)" % str(e))
-        #write_model_outputs(best_params, "Best")
-        #params_filename = "PennModel_%s_%s_bestparams.json" % (day.isoformat(), region)
-        #with open(params_filename, "w") as f:
-        #    json.dump({ "params": p, "mse": best_score }, f)
 
-def predict_for_all_regions(region_results, is_first_batch):
-    region_results_list = region_results.values()
-    compiled_results_df = region_results_list[0]
+def predict_for_all_regions(p, region_results, is_first_batch, output_file):
+    region_results_list = list(region_results.values())
+    compiled_results_df = list(region_results_list[0])
     for next_region_result in region_results_list[1:]:
-        for i in range(2):
+        for i in range(len(next_region_result)):
             compiled_results_df[i] = compiled_results_df[i].append(next_region_result[i])
+    full_predictions_df = compiled_results_df[0];
+    #print("compiled_results_df[1]", compiled_results_df[1])
     actual_df = (
-        compiled_results_df[0]
+        compiled_results_df[1]
         .resample("D")[HOSP_DATA_COLNAME_TOTAL_PATS]
         .sum()
     )
+    #print("actual_df", actual_df)
+    #print("compiled_results_df[2]", compiled_results_df[2])
     predict_df = (
-        compiled_results_df[1]
+        compiled_results_df[2]
+        #.set_index("date")
         .resample("D")[PENNMODEL_COLNAME_HOSPITALIZED]
         .sum()
     )
-    mse = mean_squared_error(
-        actual_df[HOSP_DATA_COLNAME_TOTAL_PATS], 
-        predict_df[PENNMODEL_COLNAME_HOSPITALIZED]
-    )
-    write_fit_rows(p, compiled_results_df[1], mse, is_first_batch, output_file)
+    #print("predict_df", predict_df)
+    mse = mean_squared_error(actual_df, predict_df)
+    print("MSE:", mse)
+    write_fit_rows(p, full_predictions_df, mse, is_first_batch, output_file)
 
 """
     if mse < best[region_name]["score"]:
