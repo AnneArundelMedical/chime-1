@@ -23,7 +23,8 @@ VARYING_PARAMS = {
     "relative_contact_rate":
         list( rcr/100.0 for rcr in range(15, 71, 5) ),
     "mitigation_date":
-        list( datetime.date(2020, 3, 1) + datetime.timedelta(n) for n in range(0, 41) ),
+        [ datetime.date(2020, 3, 23) ]
+        #list( datetime.date(2020, 3, 1) + datetime.timedelta(n) for n in range(0, 41) ),
 }
 
 HOSP_DATA_COLNAME_DATE = "[Census.CalculatedValue]"
