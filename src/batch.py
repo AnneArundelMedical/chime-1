@@ -39,6 +39,10 @@ def input_file_path(file_date):
     filename = "CovidTestedCensus_%s.csv" % file_date.isoformat()
     return os.path.join(INPUT_DIR, filename)
 
+def input_file_path_newstyle(file_date):
+    filename = "CovidDailyCensus_%s.txt" % file_date.isoformat()
+    return os.path.join(INPUT_DIR, filename)
+
 def output_file_path(main_label, sub_label, chart_name, parameters):
     p = parameters
     if sub_label is None:
@@ -233,6 +237,20 @@ def load_hospital_census_data(report_date):
     #print("/FINAL")
     return max_pats_df, hosp_census_today
 
+def load_newstyle_hospital_census_data(report_date):
+    print("load_newstyle_hospital_census_data")
+    data_path = input_file_path_newstyle(report_date)
+    census_df = pd.read_csv(data_path,
+                            sep="\t",
+                            names=["CensusDate", "OrderStatus", "OrderStatusCount"],
+                            parse_dates=[0],
+                            index_col=[0])
+    print(census_df)
+    positive_census_today_series = census_df["OrderStatusCount"].filter([report_date])
+    positive_census_today = positive_census_today_series[0]
+    print("TODAY'S POSITIVE COUNT:", positive_census_today)
+    return census_df, positive_census_today
+
 def original_variations(day):
     """This is the original report that I did on the first day."""
     doubling_times = [ 3.0, 3.5, 4.0 ]
@@ -240,9 +258,12 @@ def original_variations(day):
     param_set = (BASE_PARAMS, REGIONS, doubling_times, relative_contact_rates)
     write_model_outputs_for_permutations(*param_set)
 
-def data_based_variations(day):
+def data_based_variations(day, old_style_inputs):
     print("data_based_variations")
-    hosp_census_df, patients_today = load_hospital_census_data(day)
+    if old_style_inputs:
+        hosp_census_df, patients_today = load_hospital_census_data(day)
+    else:
+        hosp_census_df, patients_today = load_newstyle_hospital_census_data(day)
     print("LOAD COMPLETE")
     print(hosp_census_df)
     print(hosp_census_df.dtypes)
@@ -419,11 +440,16 @@ def write_model_outputs(parameters, filename_annotation = None):
         df.to_csv(path)
 
 if __name__ == "__main__":
+    old_style_inputs = False
     if len(sys.argv) > 1:
-        today_override = datetime.date.fromisoformat(sys.argv[1])
+        args = sys.argv[1:]
+        if args[0] == "--old-style-inputs":
+            args.pop(0)
+            old_style_inputs = True
+        today_override = datetime.date.fromisoformat(args[0])
     else:
         today_override = datetime.date.today()
     print("Pandas version:", pd.__version__)
     #original_variations()
-    data_based_variations(today_override)
+    data_based_variations(today_override, old_style_inputs)
 
