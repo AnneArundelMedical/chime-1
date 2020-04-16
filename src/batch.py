@@ -27,10 +27,21 @@ VARYING_PARAMS = {
         #list( datetime.date(2020, 3, 1) + datetime.timedelta(n) for n in range(0, 41) ),
 }
 
-HOSP_DATA_COLNAME_DATE = "[Census.CalculatedValue]"
-HOSP_DATA_COLNAME_TOTAL_PATS = "Total Patients"
-HOSP_DATA_COLNAME_TESTRESULT = "Current Order Status"
+HOSP_DATA_OLD_COLNAME_DATE = "[Census.CalculatedValue]"
+HOSP_DATA_OLD_COLNAME_TOTAL_PATS = "Total Patients"
+HOSP_DATA_OLD_COLNAME_TESTRESULT = "Current Order Status"
+
 HOSP_DATA_COLNAME_TRUE_DATETIME = "TRUE_DATETIME"
+
+HOSP_DATA_COLNAME_DATE = "CensusDate"
+HOSP_DATA_COLNAME_TESTRESULT = "OrderStatus"
+HOSP_DATA_COLNAME_TESTRESULTCOUNT = "OrderStatusCount"
+
+HOSP_DATA_FILE_COLUMN_NAMES = [
+    HOSP_DATA_COLNAME_DATE,
+    HOSP_DATA_COLNAME_TESTRESULT,
+    HOSP_DATA_COLNAME_TESTRESULTCOUNT,
+]
 
 PENNMODEL_COLNAME_DATE = "date"
 PENNMODEL_COLNAME_HOSPITALIZED = "census_hospitalized"
@@ -213,13 +224,13 @@ def load_hospital_census_data(report_date):
     data_path = input_file_path(report_date)
     census_df = pd.read_csv(data_path)
     #print(census_df)
-    datetime_column = pd.to_datetime(census_df[HOSP_DATA_COLNAME_DATE], format="%Y-%m-%d %H:%M:%S")
+    datetime_column = pd.to_datetime(census_df[HOSP_DATA_OLD_COLNAME_DATE], format="%Y-%m-%d %H:%M:%S")
     #print(datetime_column)
     census_df[HOSP_DATA_COLNAME_TRUE_DATETIME] = datetime_column
-    is_positive = census_df[HOSP_DATA_COLNAME_TESTRESULT] == "POSITIVE"
+    is_positive = census_df[HOSP_DATA_OLD_COLNAME_TESTRESULT] == "POSITIVE"
     positive_df = census_df[is_positive]
     grouped_df = positive_df.set_index(HOSP_DATA_COLNAME_TRUE_DATETIME).resample("D")
-    max_pats_series = grouped_df[HOSP_DATA_COLNAME_TOTAL_PATS].max()
+    max_pats_series = grouped_df[HOSP_DATA_OLD_COLNAME_TOTAL_PATS].max()
     print("MAX PATS DF")
     print(max_pats_series)
     hosp_census_today_series = max_pats_series.filter([report_date])
@@ -235,6 +246,9 @@ def load_hospital_census_data(report_date):
     #print("FINAL")
     #print(max_pats_series.iloc[:,[0]])
     #print("/FINAL")
+    # Rename columns to match new data file format
+    max_pats_df.columns = HOSP_DATA_FILE_COLUMN_NAMES
+    print("RENAMED COLUMNS", max_pats_df)
     return max_pats_df, hosp_census_today
 
 def load_newstyle_hospital_census_data(report_date):
@@ -242,11 +256,13 @@ def load_newstyle_hospital_census_data(report_date):
     data_path = input_file_path_newstyle(report_date)
     census_df = pd.read_csv(data_path,
                             sep="\t",
-                            names=["CensusDate", "OrderStatus", "OrderStatusCount"],
+                            names=HOSP_DATA_FILE_COLUMN_NAMES,
                             parse_dates=[0],
                             index_col=[0])
     print(census_df)
-    positive_census_today_series = census_df["OrderStatusCount"].filter([report_date])
+    positive_census_today_series = (
+        census_df[HOSP_DATA_COLNAME_TESTRESULTCOUNT]
+        .filter([report_date]))
     positive_census_today = positive_census_today_series[0]
     print("TODAY'S POSITIVE COUNT:", positive_census_today)
     return census_df, positive_census_today
@@ -365,7 +381,7 @@ def predict_for_all_regions(p, region_results, is_first_batch, output_file):
     #print("compiled_results_df[1]", compiled_results_df[1])
     actual_df = (
         compiled_results_df[1]
-        .resample("D")[HOSP_DATA_COLNAME_TOTAL_PATS]
+        .resample("D")[HOSP_DATA_COLNAME_TESTRESULTCOUNT]
         .sum()
     )
     #print("actual_df", actual_df)
