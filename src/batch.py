@@ -10,6 +10,7 @@ from sklearn.metrics import mean_squared_error
 import datetime
 import sys, json, re, os, os.path
 import logging
+import functools
 
 OUTPUT_DIR = "output"
 INPUT_DIR = "input"
@@ -21,7 +22,7 @@ VARYING_PARAMS = {
     "doubling_time":
         list( dt/10.0 for dt in range(20, 41, 2) ),
     "relative_contact_rate":
-        list( rcr/100.0 for rcr in range(15, 71, 5) ),
+        list( rcr/100.0 for rcr in range(14, 71, 2) ),
     "mitigation_date":
         [ datetime.date(2020, 3, 23) ]
         #list( datetime.date(2020, 3, 1) + datetime.timedelta(n) for n in range(0, 41) ),
@@ -94,9 +95,9 @@ BASE_PARAMS = {
     "icu": Disposition(.013, 10),
     "relative_contact_rate": .30,
     "ventilated": Disposition(.007, 10),
-    "current_date": datetime.date.today(),
-    #"date_first_hospitalized": date.fromisoformat("2020-03-12"),
-    "doubling_time": 3.0,
+    #"current_date": datetime.date.today(),
+    "date_first_hospitalized": datetime.date.fromisoformat("2020-03-12"),
+    #"doubling_time": 3.0,
     "infectious_days": 14,
     #market_share: 1.0,
     #max_y_axis: Optional[int] = None,
@@ -106,8 +107,6 @@ BASE_PARAMS = {
     #region: Optional[Regions] = None,
     "relative_contact_rate": .30,
 }
-
-ITERATION_COUNT = 0
 
 def parsedate(ds):
     return datetime.date.fromisoformat(ds)
@@ -120,13 +119,14 @@ def generate_param_permutations(
     params = []
     # Important: regions must be the innermost loop because we compile
     # results from all regions on each iteration.
-    for dt in doubling_times:
-        for rcr in relative_contact_rates:
-            for md in mitigation_dates:
-                for region in regions:
-                    param_set_id = param_set_id + 1
-                    p = combine_params(param_set_id, base_params, current_date, region, dt, rcr, md)
-                    params.append(p)
+    #for dt in doubling_times:
+    for rcr in relative_contact_rates:
+        for md in mitigation_dates:
+            for region in regions:
+                param_set_id = param_set_id + 1
+                # None takes the place of dt (doubling time)
+                p = combine_params(param_set_id, base_params, current_date, region, None, rcr, md)
+                params.append(p)
     return params
 
 def combine_params(param_set_id, base_params, current_date, region, doubling_time,
@@ -134,7 +134,8 @@ def combine_params(param_set_id, base_params, current_date, region, doubling_tim
     p = { **base_params, **region }
     p["param_set_id"] = param_set_id
     p["current_date"] = current_date
-    p["doubling_time"] = doubling_time
+    if doubling_time:
+        p["doubling_time"] = doubling_time
     p["relative_contact_rate"] = relative_contact_rate
     p["mitigation_date"] = mitigation_date
     return p
@@ -299,7 +300,7 @@ def data_based_variations(day, old_style_inputs):
     find_best_fitting_params(hosp_census_df, *param_set)
     compl_time = datetime.datetime.now()
     print("Completed fit: %s" % compl_time.isoformat())
-    print("Elapsed time:", (compl_time - start_time).total_seconds)
+    print("Elapsed time:", (compl_time - start_time).total_seconds())
 
 def write_model_outputs_for_permutations(
             base_params, current_date, regions, doubling_times,
@@ -334,6 +335,7 @@ def find_best_fitting_params(hosp_census_df,
             print(p, file=f)
     is_first_batch = True
     output_file_path = os.path.join(OUTPUT_DIR, "PennModelFit_Combined_%s.csv" % day.isoformat())
+    print("Writing to file:", output_file_path)
     with open(output_file_path, "w") as output_file:
         region_results = {}
         for p in params_list:
@@ -355,39 +357,60 @@ def find_best_fitting_params(hosp_census_df,
             #print(matched_hosp_census_df[HOSP_DATA_COLNAME_TOTAL_PATS])
             #print(matched_pred_census_df[PENNMODEL_COLNAME_HOSPITALIZED])
             if region_name in region_results:
-                predict_for_all_regions(p, region_results, is_first_batch, output_file)
+                predict_for_all_regions(region_results, is_first_batch, output_file)
                 is_first_batch = False
                 region_results = {}
-            region_results[region_name] = (
-                m.census_df,
-                matched_hosp_census_df,
-                matched_pred_census_df
-            )
-        try:
-            print("BEST PARAMS:")
-            for (region_name, b) in best.items():
-                print("Best params for region:", region_name)
-                print(b["params"])
-        except Exception as e:
-            print("(printing error: %s)" % str(e))
+            region_results[region_name] = {
+                "model_census_df": m.census_df,
+                "matched_actual_census_df": matched_hosp_census_df,
+                "matched_predict_census_df": matched_pred_census_df,
+                "params": p,
+            }
+    print("Closed file:", output_file_path)
 
-def predict_for_all_regions(p, region_results, is_first_batch, output_file):
+def concat_dataframes(dataframes):
+    return functools.reduce(lambda a, b: a.append(b), dataframes)
+
+def common_params(params_list):
+    common = {}
+    #print(params_list)
+    for k in params_list[0].keys():
+        v = params_list[0][k]
+        all_match = True
+        for p2 in params_list[1:]:
+            if p2[k] != v:
+                all_match = False
+                break
+        if all_match:
+            common[k] = v
+    return common
+
+def predict_for_all_regions(region_results, is_first_batch, output_file):
     region_results_list = list(region_results.values())
-    compiled_results_df = list(region_results_list[0])
-    for next_region_result in region_results_list[1:]:
-        for i in range(len(next_region_result)):
-            compiled_results_df[i] = compiled_results_df[i].append(next_region_result[i])
-    full_predictions_df = compiled_results_df[0];
-    #print("compiled_results_df[1]", compiled_results_df[1])
+    combined_actual_df = concat_dataframes(
+        [ r["matched_actual_census_df"] for r in region_results_list ])
+    combined_predict_df = concat_dataframes(
+        [ r["matched_predict_census_df"] for r in region_results_list ])
+    combined_model_census_df_list = \
+        [ r["model_census_df"] for r in region_results_list ]
+    params_list = \
+        [ r["params"] for r in region_results_list ]
+    for i in range(len(region_results_list)):
+        for prop_name in ["param_set_id", "region_name", "population", "market_share"]:
+            combined_model_census_df_list[i][prop_name] = params_list[i][prop_name]
+    combined_model_census_df = concat_dataframes(combined_model_census_df_list)
+    group_param_set_id = min(
+        [ r["params"]["param_set_id"] for r in region_results_list ])
+    combined_model_census_df["group_param_set_id"] = group_param_set_id
     actual_df = (
-        compiled_results_df[1]
+        combined_actual_df
         .resample("D")[HOSP_DATA_COLNAME_TESTRESULTCOUNT]
         .sum()
     )
     #print("actual_df", actual_df)
     #print("compiled_results_df[2]", compiled_results_df[2])
     predict_df = (
-        compiled_results_df[2]
+        combined_predict_df
         #.set_index("date")
         .resample("D")[PENNMODEL_COLNAME_HOSPITALIZED]
         .sum()
@@ -395,7 +418,12 @@ def predict_for_all_regions(p, region_results, is_first_batch, output_file):
     #print("predict_df", predict_df)
     mse = mean_squared_error(actual_df, predict_df)
     print("MSE:", mse)
-    write_fit_rows(p, full_predictions_df, mse, is_first_batch, output_file)
+    write_fit_rows(
+        common_params(params_list),
+        combined_model_census_df,
+        mse,
+        is_first_batch,
+        output_file)
 
 """
     if mse < best[region_name]["score"]:
@@ -405,17 +433,15 @@ def predict_for_all_regions(p, region_results, is_first_batch, output_file):
         #print("BEST SCORE: %g" % mse)
 """
 
+ITERS = 0
+
 def write_fit_rows(p, census_df, mse, is_first_batch, output_file):
     df = census_df.dropna().set_index(PENNMODEL_COLNAME_DATE)
-    df["region_name"] = p["region_name"]
-    df["population"] = p["population"]
-    df["market_share"] = p["market_share"]
     df["relative_contact_rate"] = p["relative_contact_rate"]
-    df["doubling_time"] = p["doubling_time"]
+    #df["doubling_time"] = p["doubling_time"]
     df["mitigation_date"] = p["mitigation_date"]
     df["mse"] = mse
     df["run_date"] = p["current_date"]
-    df["param_set_id"] = p["param_set_id"]
     """
     df["hospitalized_rate"] = p["hospitalized"].rate
     df["hospitalized_days"] = p["hospitalized"].days
@@ -426,6 +452,12 @@ def write_fit_rows(p, census_df, mse, is_first_batch, output_file):
     """
     #path = output_file_path("PennModelFit", None, "census", p)
     df.to_csv(output_file, header=is_first_batch)
+    #print("Printing batch:", p["param_set_id"], "Count:", len(df))
+    global ITERS
+    ITERS = ITERS + 1
+    if ITERS == 1:
+        #raise Exception("STOPPING TO DEBUG")
+        pass
 
 #{'current_hospitalized': 14, 'hospitalized': Disposition(rate=0.044, days=10), 'icu': Disposition(rate=0.013, days=10), 'relative_contact_rate': 0.2, 'ventilated': Disposition(rate=0.007, days=10), 'current_date': datetime.date(2020, 4, 8), 'doubling_time': 2.8, 'infectious_days': 14, 'n_days': 90, 'recovered': 0, 'region_name': 'Anne Arundel', 'population': 597234, 'market_share': 0.3, 'mitigation_date': datetime.date(2020, 3, 1)}
 
