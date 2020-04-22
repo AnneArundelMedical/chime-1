@@ -27,6 +27,16 @@ VARYING_PARAMS = {
         #[ datetime.date(2020, 3, 23) ]
         list( datetime.date(2020, 3, 15) + datetime.timedelta(n)
               for n in range(0, 17, 2) ),
+    "hospitalized": list(
+        Disposition(pct/1000, days) for (pct, days)
+        in itertools.product(
+            range(30, 51, 2),
+            range(6, 14, 1),
+        )
+    ),
+    "icu": list(
+        Disposition(.013, days) for days in range(7, 20, 1)
+    ),
 }
 
 HOSP_DATA_OLD_COLNAME_DATE = "[Census.CalculatedValue]"
@@ -92,8 +102,8 @@ REGIONS = [
 BASE_PARAMS = {
     "current_hospitalized": 14,
     # rates for whole pop
-    "hospitalized": Disposition(.044, 10),
-    "icu": Disposition(.013, 10),
+    "hospitalized": Disposition(.044, 10), # 6 or maybe 5
+    "icu": Disposition(.013, 10), # ICU LOS 8
     "relative_contact_rate": .30,
     "ventilated": Disposition(.007, 10),
     #"current_date": datetime.date.today(),
