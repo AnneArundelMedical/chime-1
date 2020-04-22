@@ -24,18 +24,21 @@ VARYING_PARAMS = {
     "relative_contact_rate":
         list( rcr/100.0 for rcr in range(14, 71, 2) ),
     "mitigation_date":
+        [datetime.date(2020, 3, 24),
+         datetime.date(2020, 4, 1),
+         datetime.date(2020, 4, 8),]
         #[ datetime.date(2020, 3, 23) ]
-        list( datetime.date(2020, 3, 15) + datetime.timedelta(n)
-              for n in range(0, 17, 2) ),
+        #list( datetime.date(2020, 3, 15) + datetime.timedelta(n)
+        #      for n in range(0, 17, 2) ),
     "hospitalized": list(
         Disposition(pct/1000, days) for (pct, days)
         in itertools.product(
-            range(30, 51, 2),
-            range(6, 14, 1),
+            range(30, 51, 5),
+            range(5, 11, 1),
         )
     ),
     "icu": list(
-        Disposition(.013, days) for days in range(7, 20, 1)
+        Disposition(.013, days) for days in range(7, 11, 1)
     ),
 }
 
