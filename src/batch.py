@@ -15,6 +15,9 @@ import functools, itertools
 OUTPUT_DIR = "output"
 INPUT_DIR = "input"
 
+ERRORS_FILE = "ERRORS.txt"
+
+
 penn_chime.parameters.PRINT_PARAMS = False
 penn_chime.models.logger.setLevel(logging.CRITICAL)
 
@@ -479,7 +482,7 @@ def write_fit_rows(p, census_df, mse, is_first_batch, output_file):
         df["ventilated_days"] = p["ventilated"].days
     except KeyError as e:
         print("EXCEPTION IN WRITE:", e, file=sys.stderr)
-        with open("ERRORS.txt", "a") as f:
+        with open(ERRORS_FILE, "a") as f:
             print(datetime.datetime.now().isoformat(), file=f)
             print(e, file=f)
     #path = output_file_path("PennModelFit", None, "census", p)
@@ -520,6 +523,8 @@ def write_model_outputs(parameters, filename_annotation = None):
         df.to_csv(path)
 
 if __name__ == "__main__":
+    if os.path.exists(ERRORS_FILE):
+        os.remove(ERRORS_FILE)
     old_style_inputs = False
     if len(sys.argv) > 1:
         args = sys.argv[1:]
@@ -532,4 +537,7 @@ if __name__ == "__main__":
     print("Pandas version:", pd.__version__)
     #original_variations()
     data_based_variations(today_override, old_style_inputs)
+    if os.path.exists(ERRORS_FILE):
+        with open(ERRORS_FILE, "r") as f:
+            sys.stderr.write(f.read())
 
