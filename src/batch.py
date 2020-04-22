@@ -136,7 +136,8 @@ def generate_param_permutations(
     # results from all regions on each iteration.
     #for dt in doubling_times:
     combinations = itertools.product(
-        regions, relative_contact_rates, mitigation_dates, hospitalized, icu,
+        relative_contact_rates, mitigation_dates, hospitalized, icu,
+        regions, 
     )
     for combo in combinations:
         param_set_id = param_set_id + 1
@@ -145,8 +146,10 @@ def generate_param_permutations(
         params.append(p)
     return params
 
-def combine_params(param_set_id, base_params, current_date, region,
-        relative_contact_rate, mitigation_date, hospitalized, icu):
+def combine_params(param_set_id, base_params, current_date, 
+                   relative_contact_rate, mitigation_date, hospitalized, icu,
+                   region,
+                   ):
     p = { **base_params, **region }
     p["param_set_id"] = param_set_id
     p["current_date"] = current_date
@@ -459,20 +462,26 @@ def predict_for_all_regions(region_results, is_first_batch, output_file):
 ITERS = 0
 
 def write_fit_rows(p, census_df, mse, is_first_batch, output_file):
-    df = census_df.dropna().set_index(PENNMODEL_COLNAME_DATE)
-    df["relative_contact_rate"] = p["relative_contact_rate"]
-    #df["doubling_time"] = p["doubling_time"]
-    df["mitigation_date"] = p["mitigation_date"]
-    df["hospitalized_rate"] = p["hospitalized"].rate
-    df["mitigation_date"] = p["mitigation_date"]
-    df["mse"] = mse
-    df["run_date"] = p["current_date"]
-    df["hospitalized_rate"] = p["hospitalized"].rate
-    df["hospitalized_days"] = p["hospitalized"].days
-    df["icu_rate"] = p["icu"].rate
-    df["icu_days"] = p["icu"].days
-    df["ventilated_rate"] = p["ventilated"].rate
-    df["ventilated_days"] = p["ventilated"].days
+    try:
+        df = census_df.dropna().set_index(PENNMODEL_COLNAME_DATE)
+        df["relative_contact_rate"] = p["relative_contact_rate"]
+        #df["doubling_time"] = p["doubling_time"]
+        df["mitigation_date"] = p["mitigation_date"]
+        df["hospitalized_rate"] = p["hospitalized"].rate
+        df["mitigation_date"] = p["mitigation_date"]
+        df["mse"] = mse
+        df["run_date"] = p["current_date"]
+        df["hospitalized_rate"] = p["hospitalized"].rate
+        df["hospitalized_days"] = p["hospitalized"].days
+        df["icu_rate"] = p["icu"].rate
+        df["icu_days"] = p["icu"].days
+        df["ventilated_rate"] = p["ventilated"].rate
+        df["ventilated_days"] = p["ventilated"].days
+    except KeyError as e:
+        print("EXCEPTION IN WRITE:", e, file=sys.stderr)
+        with open("ERRORS.txt", "a") as f:
+            print(datetime.datetime.now().isoformat(), file=f)
+            print(e, file=f)
     #path = output_file_path("PennModelFit", None, "census", p)
     df.to_csv(output_file, header=is_first_batch)
     #print("Printing batch:", p["param_set_id"], "Count:", len(df))
