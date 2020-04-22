@@ -26,7 +26,7 @@ VARYING_PARAMS = {
     "mitigation_date":
         [datetime.date(2020, 3, 24),
          datetime.date(2020, 4, 1),
-         datetime.date(2020, 4, 8),]
+         datetime.date(2020, 4, 8),],
         #[ datetime.date(2020, 3, 23) ]
         #list( datetime.date(2020, 3, 15) + datetime.timedelta(n)
         #      for n in range(0, 17, 2) ),
