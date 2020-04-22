@@ -10,7 +10,7 @@ from sklearn.metrics import mean_squared_error
 import datetime
 import sys, json, re, os, os.path
 import logging
-import functools
+import functools, itertools
 
 OUTPUT_DIR = "output"
 INPUT_DIR = "input"
@@ -124,31 +124,35 @@ def parsedate(ds):
 
 def generate_param_permutations(
         base_params, current_date, regions, doubling_times,
-        relative_contact_rates, mitigation_dates
+        relative_contact_rates, mitigation_dates,
+        hospitalized, icu,
         ):
     param_set_id = 0
     params = []
     # Important: regions must be the innermost loop because we compile
     # results from all regions on each iteration.
     #for dt in doubling_times:
-    for rcr in relative_contact_rates:
-        for md in mitigation_dates:
-            for region in regions:
-                param_set_id = param_set_id + 1
-                # None takes the place of dt (doubling time)
-                p = combine_params(param_set_id, base_params, current_date, region, None, rcr, md)
-                params.append(p)
+    combinations = itertools.product(
+        regions, relative_contact_rates, mitigation_dates, hospitalized, icu,
+    )
+    for combo in combinations:
+        param_set_id = param_set_id + 1
+        # None takes the place of dt (doubling time)
+        p = combine_params(param_set_id, base_params, current_date, *combo)
+        params.append(p)
     return params
 
-def combine_params(param_set_id, base_params, current_date, region, doubling_time,
-        relative_contact_rate, mitigation_date):
+def combine_params(param_set_id, base_params, current_date, region,
+        relative_contact_rate, mitigation_date, hospitalized, icu):
     p = { **base_params, **region }
     p["param_set_id"] = param_set_id
     p["current_date"] = current_date
-    if doubling_time:
-        p["doubling_time"] = doubling_time
+    #if doubling_time:
+    #    p["doubling_time"] = doubling_time
     p["relative_contact_rate"] = relative_contact_rate
     p["mitigation_date"] = mitigation_date
+    p["hospitalized"] = hospitalized
+    p["icu"] = icu
     return p
 
 def test_params():
@@ -168,7 +172,7 @@ def test_params():
     mitigation_dates = [ parsedate(d) for d in ['2020-02-05', '2020-02-10'] ]
     params = generate_param_permutations(
         base_params, current_date, regions, doubling_times,
-        relative_contact_rates, mitigation_dates
+        relative_contact_rates, mitigation_dates,
     )
 
     print(params)
@@ -301,10 +305,13 @@ def data_based_variations(day, old_style_inputs):
     doubling_times = VARYING_PARAMS["doubling_time"]
     relative_contact_rates = VARYING_PARAMS["relative_contact_rate"]
     mitigation_dates = VARYING_PARAMS["mitigation_date"]
+    hospitalized = VARYING_PARAMS["hospitalized"]
+    icu = VARYING_PARAMS["icu"]
     param_set = (
-            BASE_PARAMS, day, REGIONS, doubling_times,
-            relative_contact_rates, mitigation_dates
-            )
+        BASE_PARAMS, day, REGIONS, doubling_times,
+        relative_contact_rates, mitigation_dates,
+        hospitalized, icu,
+    )
     #write_model_outputs_for_permutations(*param_set)
     start_time = datetime.datetime.now()
     print("Beginning fit: %s" % start_time.isoformat())
@@ -321,12 +328,16 @@ def write_model_outputs_for_permutations(
     for p in generate_param_permutations(
             base_params, current_date, regions, doubling_times,
             relative_contact_rates, mitigation_dates,
+            hospitalized, icu,
             ):
         write_model_outputs(p)
 
-def find_best_fitting_params(hosp_census_df,
-            base_params, day, regions, doubling_times,
-            relative_contact_rates, mitigation_dates):
+def find_best_fitting_params(
+    hosp_census_df,
+    base_params, day, regions, doubling_times,
+    relative_contact_rates, mitigation_dates,
+    hospitalized, icu,
+):
     print("find_best_fitting_params")
     best = {}
     for region in regions:
@@ -334,12 +345,10 @@ def find_best_fitting_params(hosp_census_df,
         best[region_name] = { "score": 1e10, "params": None }
     hosp_dates = hosp_census_df.dropna().index
     print("hosp_dates\n", hosp_dates)
-    #print(list(doubling_times))
-    #print(list(relative_contact_rates))
-    #print(list(generate_param_permutations(base_params, day, regions, doubling_times, relative_contact_rates)))
     params_list = generate_param_permutations(
         base_params, day, regions, list(doubling_times),
-        list(relative_contact_rates), mitigation_dates
+        list(relative_contact_rates), mitigation_dates,
+        hospitalized, icu,
         )
     with open("PARAMS.txt", "w") as f:
         for p in params_list:
@@ -451,16 +460,16 @@ def write_fit_rows(p, census_df, mse, is_first_batch, output_file):
     df["relative_contact_rate"] = p["relative_contact_rate"]
     #df["doubling_time"] = p["doubling_time"]
     df["mitigation_date"] = p["mitigation_date"]
+    df["hospitalized_rate"] = p["hospitalized"].rate
+    df["mitigation_date"] = p["mitigation_date"]
     df["mse"] = mse
     df["run_date"] = p["current_date"]
-    """
     df["hospitalized_rate"] = p["hospitalized"].rate
     df["hospitalized_days"] = p["hospitalized"].days
     df["icu_rate"] = p["icu"].rate
     df["icu_days"] = p["icu"].days
     df["ventilated_rate"] = p["ventilated"].rate
     df["ventilated_days"] = p["ventilated"].days
-    """
     #path = output_file_path("PennModelFit", None, "census", p)
     df.to_csv(output_file, header=is_first_batch)
     #print("Printing batch:", p["param_set_id"], "Count:", len(df))
