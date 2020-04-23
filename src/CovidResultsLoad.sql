@@ -45,7 +45,7 @@ mitigation_date,hospitalized_rate,mse,run_date,hospitalized_days,icu_rate,icu_da
 create index ix_cpm_psi on CovidPennModel ([param_set_id]);
 
 bulk insert CovidPennModel
-from 'D:\PennModelFit_Combined_2020-04-22.csv'
+from 'D:\PennModelFit_Combined_2020-04-23.csv'
 with (firstrow=2, fieldterminator=',', rowterminator='\r\n')
 ;
 
@@ -57,3 +57,4 @@ group by group_param_set_id, mse
 order by mse asc
 ) g
 join CovidPennModel m on m.group_param_set_id = g.group_param_set_id
+order by m.mse, m.group_param_set_id, m.region_name, m.day
