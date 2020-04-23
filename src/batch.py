@@ -112,6 +112,21 @@ REGIONS = [
     { "region_name": "Talbot", "population": 37181, "market_share": .09, },
 ];
 
+def add_region_share():
+    all_regions_population = 0
+    all_regions_market_share_population = 0
+    for r in REGIONS:
+        market_share_population = r["population"] * r["market_share"]
+        all_regions_population = \
+            all_regions_population + r["population"]
+        all_regions_market_share_population = \
+            all_regions_market_share_population + market_share_population
+    for r in REGIONS:
+        market_share_population = r["population"] * r["market_share"]
+        r["hosp_pop_share"] = \
+            market_share_population / all_regions_market_share_population
+add_region_share()
+
 BASE_PARAMS = {
     "current_hospitalized": 14,
     # rates for whole pop
@@ -556,7 +571,9 @@ def get_model_from_params(parameters):
     #print("PARAMETERS PRINT", parameters)
     p = { **parameters }
     p["region"] = Regions(**{ p["region_name"]: p["population"] })
+    p["current_hospitalized"] = p["current_hospitalized"] * p["hosp_pop_share"]
     del p["region_name"]
+    del p["hosp_pop_share"]
     del p["param_set_id"]
     params_obj = Parameters(**p)
     m = penn_chime.models.SimSirModel(params_obj)
