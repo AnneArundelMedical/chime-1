@@ -70,8 +70,11 @@ def input_file_path(file_date):
     filename = "CovidTestedCensus_%s.csv" % file_date.isoformat()
     return os.path.join(INPUT_DIR, filename)
 
-def input_file_path_newstyle(file_date):
-    filename = "CovidDailyCensus_%s.txt" % file_date.isoformat()
+def input_file_path_newstyle(file_date, version_number):
+    base_name = "CovidDailyCensus"
+    if version_number:
+        base_name = "%sV%d" % (base_name, version_number)
+    filename = "%s_%s.txt" % (base_name, file_date.isoformat())
     return os.path.join(INPUT_DIR, filename)
 
 def output_file_path(main_label, sub_label, chart_name, parameters):
@@ -283,7 +286,7 @@ def load_hospital_census_data(report_date):
 
 def load_newstyle_hospital_census_data(report_date):
     print("load_newstyle_hospital_census_data")
-    data_path = input_file_path_newstyle(report_date)
+    data_path = input_file_path_newstyle(report_date, 2)
     census_df = pd.read_csv(data_path,
                             sep="\t",
                             names=HOSP_DATA_FILE_COLUMN_NAMES,
