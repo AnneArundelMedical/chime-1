@@ -10,7 +10,7 @@ from sklearn.metrics import mean_squared_error
 import datetime
 import sys, json, re, os, os.path
 import logging
-import functools, itertools
+import functools, itertools, traceback
 
 OUTPUT_DIR = "output"
 INPUT_DIR = "input"
@@ -398,7 +398,7 @@ def find_best_fitting_params(
         for p in params_list:
             try:
                 region_name = p["region_name"]
-                print("PARAMS PASSED TO MODEL:", p)
+                #print("PARAMS PASSED TO MODEL:", p)
                 m = get_model_from_params(p)
                 census_df = m.census_df
                 #print("census_df\n", census_df)
@@ -429,7 +429,7 @@ def find_best_fitting_params(
             except Exception as e:
                 with open(ERRORS_FILE, "a") as errfile:
                     print("Errors in param set:", p, file=errfile)
-                    print(e, file=errfile)
+                    traceback.print_exc(file=errfile)
     print("Closed file:", output_file_path)
 
 def concat_dataframes(dataframes):
@@ -536,7 +536,8 @@ def write_fit_rows(p, census_df, mse, is_first_batch, output_file):
         print("EXCEPTION IN WRITE:", e, file=sys.stderr)
         with open(ERRORS_FILE, "a") as errfile:
             print(datetime.datetime.now().isoformat(), file=errfile)
-            print(e, file=errfile)
+            traceback.print_exc(file=errfile)
+        return
     #path = output_file_path("PennModelFit", None, "census", p)
     df.to_csv(output_file, header=is_first_batch)
     #print("Printing batch:", p["param_set_id"], "Count:", len(df))

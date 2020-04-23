@@ -100,6 +100,10 @@ class SimSirModel:
 
             # Refine the coarse estimate
             for iteration in range(4):
+                assert min_loss-1 >= 0
+                if min_loss+1 >= len(dts):
+                    break
+                assert min_loss+1 < len(dts)
                 dts = np.linspace(dts[min_loss-1], dts[min_loss+1], 15)
                 min_loss = self.get_argmin_doubling_time(p, dts)
 
