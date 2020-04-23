@@ -17,6 +17,8 @@ INPUT_DIR = "input"
 
 ERRORS_FILE = "ERRORS.txt"
 
+USE_DOUBLING_TIME = True
+
 
 penn_chime.parameters.PRINT_PARAMS = False
 penn_chime.models.logger.setLevel(logging.CRITICAL)
@@ -36,7 +38,7 @@ VARYING_PARAMS = {
         #list( datetime.date(2020, 3, 15) + datetime.timedelta(n)
         #      for n in range(0, 17, 2) ),
     "hospitalized": list(
-        Disposition(pct/1000, days) for (pct, days)
+        Disposition(pct/1000.0, days) for (pct, days)
         in itertools.product(
             range(5, 41, 5),
             range(5, 8, 1),
@@ -143,10 +145,18 @@ def generate_param_permutations(
     # Important: regions must be the innermost loop because we compile
     # results from all regions on each iteration.
     #for dt in doubling_times:
-    combinations = itertools.product(
-        relative_contact_rates, mitigation_dates, hospitalized, icu,
-        regions, 
-    )
+    if USE_DOUBLING_TIME:
+        combinations = itertools.product(
+            relative_contact_rates,
+            doubling_times,
+            mitigation_dates, hospitalized, icu,
+            regions, )
+    else:
+        combinations = itertools.product(
+            relative_contact_rates,
+            [0],
+            mitigation_dates, hospitalized, icu,
+            regions, )
     combo_count = 0
     for combo in combinations:
         combo_count = combo_count + 1
@@ -158,14 +168,16 @@ def generate_param_permutations(
     return params
 
 def combine_params(param_set_id, base_params, current_date, 
-                   relative_contact_rate, mitigation_date, hospitalized, icu,
+                   relative_contact_rate, doubling_time,
+                   mitigation_date, hospitalized, icu,
                    region,
                    ):
     p = { **base_params, **region }
     p["param_set_id"] = param_set_id
     p["current_date"] = current_date
-    #if doubling_time:
-    #    p["doubling_time"] = doubling_time
+    if USE_DOUBLING_TIME:
+        p["doubling_time"] = doubling_time
+        del p["date_first_hospitalized"]
     p["relative_contact_rate"] = relative_contact_rate
     p["mitigation_date"] = mitigation_date
     p["hospitalized"] = hospitalized
@@ -500,9 +512,10 @@ def write_fit_rows(p, census_df, mse, is_first_batch, output_file):
     try:
         df = census_df.dropna().set_index(PENNMODEL_COLNAME_DATE)
         df["relative_contact_rate"] = p["relative_contact_rate"]
-        #df["doubling_time"] = p["doubling_time"]
         df["mitigation_date"] = p["mitigation_date"]
         df["hospitalized_rate"] = p["hospitalized"].rate
+        if USE_DOUBLING_TIME:
+            df["doubling_time"] = p["doubling_time"]
         df["mitigation_date"] = p["mitigation_date"]
         df["mse"] = mse
         df["run_date"] = p["current_date"]

@@ -22,9 +22,9 @@ create table CovidPennModel (
   [market_share] real not null,
   [group_param_set_id] int not null,
   [relative_contact_rate] real not null,
-  --[doubling_time] real not null,
   [mitigation_date] date not null,
   hospitalized_rate real not null,
+  [doubling_time] real not null,
   [mse] real not null,
   [run_date] date not null,
   hospitalized_days int not null,
@@ -32,7 +32,11 @@ create table CovidPennModel (
   icu_days int not null,
   ventilated_rate real not null,
   ventilated_days int not null,
-  primary key ([run_date], [region_name], [relative_contact_rate], /*[doubling_time],*/ [mitigation_date], [day]
+  primary key ([run_date], [region_name], [relative_contact_rate]
+  --/*
+  , [doubling_time]
+  --*/
+  , [mitigation_date], [day]
   , hospitalized_rate, hospitalized_days, icu_rate, icu_days, ventilated_rate, ventilated_days
   )
 );
@@ -45,7 +49,7 @@ mitigation_date,hospitalized_rate,mse,run_date,hospitalized_days,icu_rate,icu_da
 create index ix_cpm_psi on CovidPennModel ([param_set_id]);
 
 bulk insert CovidPennModel
-from 'D:\PennModelFit_Combined_2020-04-23.csv'
+from 'D:\PennModelFit_Combined_2020-04-21.csv'
 with (firstrow=2, fieldterminator=',', rowterminator='\r\n')
 ;
 
@@ -58,3 +62,16 @@ order by mse asc
 ) g
 join CovidPennModel m on m.group_param_set_id = g.group_param_set_id
 order by m.mse, m.group_param_set_id, m.region_name, m.day
+
+select m.mse, m.group_param_set_id, m.day
+, sum(m.census_hospitalized) census_hospitalized
+, max(m.mitigation_date) mitigation_date, max(m.[date]) [date]
+from (
+select top 10 group_param_set_id, mse
+from CovidPennModel
+group by group_param_set_id, mse
+order by mse asc
+) g
+join CovidPennModel m on m.group_param_set_id = g.group_param_set_id
+group by m.mse, m.group_param_set_id, m.day
+order by m.mse, m.group_param_set_id, m.day
