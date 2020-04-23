@@ -24,7 +24,7 @@ create table CovidPennModel (
   [relative_contact_rate] real not null,
   [mitigation_date] date not null,
   hospitalized_rate real not null,
-  [doubling_time] real not null,
+  --[doubling_time] real not null,
   [mse] real not null,
   [run_date] date not null,
   hospitalized_days int not null,
@@ -33,7 +33,7 @@ create table CovidPennModel (
   ventilated_rate real not null,
   ventilated_days int not null,
   primary key ([run_date], [region_name], [relative_contact_rate]
-  --/*
+  /*
   , [doubling_time]
   --*/
   , [mitigation_date], [day]
