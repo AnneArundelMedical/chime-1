@@ -396,34 +396,40 @@ def find_best_fitting_params(
     with open(output_file_path, "w") as output_file:
         region_results = {}
         for p in params_list:
-            region_name = p["region_name"]
-            m = get_model_from_params(p)
-            census_df = m.census_df
-            #print("census_df\n", census_df)
-            census_df.to_csv(os.path.join(OUTPUT_DIR, "debug-model-census-dump.csv"))
-            census_df = census_df.dropna() # remove rows with NaN values
-            census_df = census_df.set_index(PENNMODEL_COLNAME_DATE);
-            #print("census_df\n", census_df)
-            #print("census_df.dtypes\n", census_df.dtypes)
-            dates_intersection = census_df.index.intersection(hosp_dates)
-            matched_pred_census_df = census_df.loc[dates_intersection]
-            #print("matched_pred_census_df\n", matched_pred_census_df)
-            matched_hosp_census_df = hosp_census_df.loc[dates_intersection]
-            #print("matched_hosp_census_df\n", matched_hosp_census_df)
-            #print("mse")
-            #print(matched_hosp_census_df[HOSP_DATA_COLNAME_TOTAL_PATS])
-            #print(matched_pred_census_df[PENNMODEL_COLNAME_HOSPITALIZED])
-            if region_name in region_results:
-                print("CURRENT POP:", p["current_hospitalized"])
-                predict_for_all_regions(region_results, is_first_batch, output_file)
-                is_first_batch = False
-                region_results = {}
-            region_results[region_name] = {
-                "model_census_df": m.census_df,
-                "matched_actual_census_df": matched_hosp_census_df,
-                "matched_predict_census_df": matched_pred_census_df,
-                "params": p,
-            }
+            try:
+                region_name = p["region_name"]
+                print("PARAMS PASSED TO MODEL:", p)
+                m = get_model_from_params(p)
+                census_df = m.census_df
+                #print("census_df\n", census_df)
+                census_df.to_csv(os.path.join(OUTPUT_DIR, "debug-model-census-dump.csv"))
+                census_df = census_df.dropna() # remove rows with NaN values
+                census_df = census_df.set_index(PENNMODEL_COLNAME_DATE);
+                #print("census_df\n", census_df)
+                #print("census_df.dtypes\n", census_df.dtypes)
+                dates_intersection = census_df.index.intersection(hosp_dates)
+                matched_pred_census_df = census_df.loc[dates_intersection]
+                #print("matched_pred_census_df\n", matched_pred_census_df)
+                matched_hosp_census_df = hosp_census_df.loc[dates_intersection]
+                #print("matched_hosp_census_df\n", matched_hosp_census_df)
+                #print("mse")
+                #print(matched_hosp_census_df[HOSP_DATA_COLNAME_TOTAL_PATS])
+                #print(matched_pred_census_df[PENNMODEL_COLNAME_HOSPITALIZED])
+                if region_name in region_results:
+                    print("CURRENT POP:", p["current_hospitalized"])
+                    predict_for_all_regions(region_results, is_first_batch, output_file)
+                    is_first_batch = False
+                    region_results = {}
+                region_results[region_name] = {
+                    "model_census_df": m.census_df,
+                    "matched_actual_census_df": matched_hosp_census_df,
+                    "matched_predict_census_df": matched_pred_census_df,
+                    "params": p,
+                }
+            except Exception as e:
+                with open(ERRORS_FILE, "a") as errfile:
+                    print("Errors in param set:", p, file=errfile)
+                    print(e, file=errfile)
     print("Closed file:", output_file_path)
 
 def concat_dataframes(dataframes):
@@ -528,9 +534,9 @@ def write_fit_rows(p, census_df, mse, is_first_batch, output_file):
         df["ventilated_days"] = p["ventilated"].days
     except KeyError as e:
         print("EXCEPTION IN WRITE:", e, file=sys.stderr)
-        with open(ERRORS_FILE, "a") as f:
-            print(datetime.datetime.now().isoformat(), file=f)
-            print(e, file=f)
+        with open(ERRORS_FILE, "a") as errfile:
+            print(datetime.datetime.now().isoformat(), file=errfile)
+            print(e, file=errfile)
     #path = output_file_path("PennModelFit", None, "census", p)
     df.to_csv(output_file, header=is_first_batch)
     #print("Printing batch:", p["param_set_id"], "Count:", len(df))
