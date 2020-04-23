@@ -25,19 +25,21 @@ VARYING_PARAMS = {
     "doubling_time":
         list( dt/10.0 for dt in range(20, 41, 2) ),
     "relative_contact_rate":
-        list( rcr/100.0 for rcr in range(14, 71, 2) ),
+        list( rcr/100.0 for rcr in range(15, 71, 5) ),
     "mitigation_date":
-        [datetime.date(2020, 3, 24),
-         datetime.date(2020, 4, 1),
-         datetime.date(2020, 4, 8),],
+        [
+            datetime.date(2020, 3, 24),
+            datetime.date(2020, 4, 1),
+            #datetime.date(2020, 4, 8),
+        ],
         #[ datetime.date(2020, 3, 23) ]
         #list( datetime.date(2020, 3, 15) + datetime.timedelta(n)
         #      for n in range(0, 17, 2) ),
     "hospitalized": list(
         Disposition(pct/1000, days) for (pct, days)
         in itertools.product(
-            range(30, 51, 5),
-            range(5, 11, 1),
+            range(25, 51, 5),
+            range(5, 8, 1),
         )
     ),
     "icu": list(
@@ -142,11 +144,14 @@ def generate_param_permutations(
         relative_contact_rates, mitigation_dates, hospitalized, icu,
         regions, 
     )
+    combo_count = 0
     for combo in combinations:
+        combo_count = combo_count + 1
         param_set_id = param_set_id + 1
         # None takes the place of dt (doubling time)
         p = combine_params(param_set_id, base_params, current_date, *combo)
         params.append(p)
+    print("Number of parameter combinations:", combo_count)
     return params
 
 def combine_params(param_set_id, base_params, current_date, 
