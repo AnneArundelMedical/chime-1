@@ -17,7 +17,7 @@ INPUT_DIR = "input"
 
 ERRORS_FILE = "ERRORS.txt"
 
-USE_DOUBLING_TIME = True
+USE_DOUBLING_TIME = False
 
 
 penn_chime.parameters.PRINT_PARAMS = False
@@ -345,7 +345,7 @@ def data_based_variations(day, old_style_inputs):
     hospitalized = VARYING_PARAMS["hospitalized"]
     icu = VARYING_PARAMS["icu"]
     param_set = (
-        BASE_PARAMS, day, REGIONS, doubling_times,
+        base, day, REGIONS, doubling_times,
         relative_contact_rates, mitigation_dates,
         hospitalized, icu,
     )
@@ -414,6 +414,7 @@ def find_best_fitting_params(
             #print(matched_hosp_census_df[HOSP_DATA_COLNAME_TOTAL_PATS])
             #print(matched_pred_census_df[PENNMODEL_COLNAME_HOSPITALIZED])
             if region_name in region_results:
+                print("CURRENT POP:", p["current_hospitalized"])
                 predict_for_all_regions(region_results, is_first_batch, output_file)
                 is_first_batch = False
                 region_results = {}
