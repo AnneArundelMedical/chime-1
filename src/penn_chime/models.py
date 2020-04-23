@@ -100,6 +100,8 @@ class SimSirModel:
 
             # Refine the coarse estimate
             for iteration in range(4):
+                if min_loss-1 < 0:
+                    break
                 assert min_loss-1 >= 0
                 if min_loss+1 >= len(dts):
                     break
@@ -193,8 +195,12 @@ class SimSirModel:
             loss = get_loss(self.current_hospitalized, predicted)
             losses[i] = loss
 
-        min_loss = pd.Series(losses).argmin()
+        min_loss = pd.Series(losses).idxmin()
         return min_loss
+
+    """
+
+    """
 
     def gen_policy(self, p: Parameters) -> Sequence[Tuple[float, int]]:
         if p.mitigation_date is not None:
