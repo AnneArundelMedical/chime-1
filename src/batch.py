@@ -25,7 +25,7 @@ VARYING_PARAMS = {
     "doubling_time":
         list( dt/10.0 for dt in range(20, 41, 2) ),
     "relative_contact_rate":
-        list( rcr/100.0 for rcr in range(15, 71, 5) ),
+        list( rcr/100.0 for rcr in range(10, 81, 10) ),
     "mitigation_date":
         [
             datetime.date(2020, 3, 24),
@@ -38,7 +38,7 @@ VARYING_PARAMS = {
     "hospitalized": list(
         Disposition(pct/1000, days) for (pct, days)
         in itertools.product(
-            range(25, 51, 5),
+            range(5, 41, 5),
             range(5, 8, 1),
         )
     ),
@@ -439,7 +439,7 @@ def predict_for_all_regions(region_results, is_first_batch, output_file):
     actual_df = (
         combined_actual_df
         .resample("D")[HOSP_DATA_COLNAME_TESTRESULTCOUNT]
-        .sum()
+        .max()
     )
     #print("actual_df", actual_df)
     #print("compiled_results_df[2]", compiled_results_df[2])
@@ -451,7 +451,23 @@ def predict_for_all_regions(region_results, is_first_batch, output_file):
     )
     #print("predict_df", predict_df)
     mse = mean_squared_error(actual_df, predict_df)
+    #print(region_results)
     print("MSE:", mse)
+    midpoint_index = int(actual_df.size/2);
+    print("SIZE", actual_df.size)
+    actual_endpoints = [
+        actual_df.iloc[1],
+        actual_df.iloc[midpoint_index],
+        actual_df.iloc[-1],
+    ]
+    predict_endpoints = [
+        predict_df.iloc[1],
+        predict_df.iloc[midpoint_index],
+        predict_df.iloc[-1],
+    ]
+    mse_endpoints = mean_squared_error(actual_endpoints, predict_endpoints)
+    #print(actual_df)
+    print(actual_endpoints, predict_endpoints, mse_endpoints)
     write_fit_rows(
         common_params(params_list),
         combined_model_census_df,
