@@ -17,7 +17,7 @@ INPUT_DIR = "input"
 
 ERRORS_FILE = "ERRORS.txt"
 
-USE_DOUBLING_TIME = False
+USE_DOUBLING_TIME = True
 
 
 penn_chime.parameters.PRINT_PARAMS = False
@@ -25,7 +25,7 @@ penn_chime.models.logger.setLevel(logging.CRITICAL)
 
 VARYING_PARAMS = {
     "doubling_time":
-        list( dt/10.0 for dt in range(20, 41, 2) ),
+        list( dt/10.0 for dt in range(20, 41, 5) ),
     "relative_contact_rate":
         list( rcr/100.0 for rcr in range(10, 81, 10) ),
     "mitigation_date":
