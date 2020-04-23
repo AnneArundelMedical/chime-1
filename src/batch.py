@@ -287,15 +287,23 @@ def load_hospital_census_data(report_date):
 def load_newstyle_hospital_census_data(report_date):
     print("load_newstyle_hospital_census_data")
     data_path = input_file_path_newstyle(report_date, 2)
+    print("DATA SOURCE FILE:", data_path)
     census_df = pd.read_csv(data_path,
                             sep="\t",
                             names=HOSP_DATA_FILE_COLUMN_NAMES,
                             parse_dates=[0],
                             index_col=[0])
+    #print("INDEX", census_df.index)
+    #census_df.index.astype("datetime64", copy = False)
     print(census_df)
+    print(census_df.dtypes)
+    print(report_date)
+    pos_cen_today_df = census_df[HOSP_DATA_COLNAME_TESTRESULTCOUNT]
+    print(pos_cen_today_df)
     positive_census_today_series = (
-        census_df[HOSP_DATA_COLNAME_TESTRESULTCOUNT]
-        .filter([report_date]))
+        pos_cen_today_df.filter([report_date])
+    )
+    print(positive_census_today_series)
     positive_census_today = positive_census_today_series[0]
     print("TODAY'S POSITIVE COUNT:", positive_census_today)
     return census_df, positive_census_today
