@@ -65,6 +65,7 @@ HOSP_DATA_COLNAME_TRUE_DATETIME = "TRUE_DATETIME"
 HOSP_DATA_COLNAME_DATE = "CensusDate"
 HOSP_DATA_COLNAME_TESTRESULT = "OrderStatus"
 HOSP_DATA_COLNAME_TESTRESULTCOUNT = "OrderStatusCount"
+HOSP_DATA_COLNAME_ICUCOUNT = "IcuCount"
 
 HOSP_DATA_FILE_COLUMN_NAMES = [
     HOSP_DATA_COLNAME_DATE,
@@ -275,11 +276,20 @@ def load_newstyle_hospital_census_data(report_date):
                             names=HOSP_DATA_FILE_COLUMN_NAMES,
                             parse_dates=[0],
                             index_col=[0])
+    icu_path = input_file_path_icu(report_date)
+    icu_df = pd.read_csv(data_path,
+                         sep="\t",
+                         names=[HOSP_DATA_COLNAME_DATE,
+                                HOSP_DATA_COLNAME_ICUCOUNT],
+                         parse_dates=[0],
+                         index_col=[0])
     #print("INDEX", census_df.index)
     #census_df.index.astype("datetime64", copy = False)
     print(census_df)
     print(census_df.dtypes)
     print(report_date)
+    census_df[HOSP_DATA_COLNAME_ICUCOUNT] = icu_df[HOSP_DATA_COLNAME_ICUCOUNT]
+    print(census_df)
     pos_cen_today_df = census_df[HOSP_DATA_COLNAME_TESTRESULTCOUNT]
     print(pos_cen_today_df)
     positive_census_today_series = pos_cen_today_df.filter([report_date])
@@ -527,8 +537,8 @@ def get_model_from_params(parameters):
     p["current_hospitalized"] = round(curr_hosp * p["hosp_pop_share"])
     del p["region_name"]
     del p["hosp_pop_share"]
-    icu_rate = p["relative_icu_rate"] * p["hospitalized"].rate
-    vent_rate = p["relative_vent_rate"] * icu_rate
+    icu_rate = round(p["relative_icu_rate"] * p["hospitalized"].rate, 4)
+    vent_rate = round(p["relative_vent_rate"] * icu_rate, 4)
     p["icu"] = Disposition(icu_rate, p["icu_days"])
     p["ventilated"] = Disposition(vent_rate, p["icu_days"])
     del p["relative_icu_rate"]
