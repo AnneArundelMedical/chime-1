@@ -24,7 +24,7 @@ create table CovidPennModel (
   [relative_contact_rate] real not null,
   [mitigation_date] date not null,
   hospitalized_rate real not null,
-  [doubling_time] real not null,
+  --[doubling_time] real not null,
   [mse] real not null,
   [run_date] date not null,
   hospitalized_days int not null,
@@ -33,7 +33,7 @@ create table CovidPennModel (
   ventilated_rate real not null,
   ventilated_days int not null,
   primary key ([run_date], [region_name], [relative_contact_rate]
-  --/*
+  /*
   , [doubling_time]
   --*/
   , [mitigation_date], [day]
@@ -49,7 +49,7 @@ mitigation_date,hospitalized_rate,mse,run_date,hospitalized_days,icu_rate,icu_da
 create index ix_cpm_psi on CovidPennModel ([param_set_id]);
 
 bulk insert CovidPennModel
-from 'D:\PennModelFit_Combined_2020-04-23_DT.csv'
+from 'D:\PennModelFit_Combined_2020-04-23_0424.csv'
 with (firstrow=2, fieldterminator=',', rowterminator='\r\n')
 ;
 
