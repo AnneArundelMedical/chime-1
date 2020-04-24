@@ -53,6 +53,7 @@ VARYING_PARAMS = {
     "relative_vent_rate": [
         pct/100.0 for pct in range(70, 91, 10)
     ],
+    "end_date_days_back": [ 7, 14 ],
 }
 
 HOSP_DATA_OLD_COLNAME_DATE = "[Census.CalculatedValue]"
@@ -158,10 +159,11 @@ def parsedate(ds):
     return datetime.date.fromisoformat(ds)
 
 def generate_param_permutations(
-        base_params, current_date, regions, doubling_times,
-        relative_contact_rates, mitigation_dates,
-        hospitalized, icu_rate, vent_rate,
-        ):
+    base_params, regions, doubling_times,
+    relative_contact_rates, mitigation_dates,
+    hospitalized, icu_rate, vent_rate,
+    end_date_days_back,
+):
     param_set_id = 0
     params = []
     # Important: regions must be the innermost loop because we compile
@@ -172,32 +174,35 @@ def generate_param_permutations(
             relative_contact_rates,
             doubling_times,
             mitigation_dates, hospitalized, icu_rate, vent_rate,
+            end_date_days_back,
             regions, )
     else:
         combinations = itertools.product(
             relative_contact_rates,
             [0],
             mitigation_dates, hospitalized, icu_rate, vent_rate,
+            end_date_days_back,
             regions, )
     combo_count = 0
     for combo in combinations:
         combo_count = combo_count + 1
         param_set_id = param_set_id + 1
         # None takes the place of dt (doubling time)
-        p = combine_params(param_set_id, base_params, current_date, *combo)
+        p = combine_params(param_set_id, base_params, *combo)
         params.append(p)
     print("Number of parameter combinations:", combo_count)
     return params
 
-def combine_params(param_set_id, base_params, current_date, 
-                   relative_contact_rate, doubling_time,
-                   mitigation_date, hospitalized,
-                   relative_icu_rate, relative_vent_rate,
-                   region,
-                   ):
+def combine_params(
+    param_set_id, base_params,
+    relative_contact_rate, doubling_time,
+    mitigation_date, hospitalized,
+    relative_icu_rate, relative_vent_rate,
+    end_date_days_back,
+    region,
+):
     p = { **base_params, **region, }
     p["param_set_id"] = param_set_id
-    p["current_date"] = current_date
     if USE_DOUBLING_TIME:
         p["doubling_time"] = doubling_time
         del p["date_first_hospitalized"]
@@ -206,6 +211,7 @@ def combine_params(param_set_id, base_params, current_date,
     p["hospitalized"] = hospitalized
     p["relative_icu_rate"] = relative_icu_rate
     p["relative_vent_rate"] = relative_vent_rate
+    p["end_date_days_back"] = end_date_days_back
     return p
 
 def lists_equal(a, b):
@@ -239,12 +245,15 @@ def load_hospital_census_data(report_date):
     max_pats_series = grouped_df[HOSP_DATA_OLD_COLNAME_TOTAL_PATS].max()
     print("MAX PATS DF")
     print(max_pats_series)
+    hosp_census_list = max_pats_series.tolist()
+    hosp_census_lookback = list(reversed(hosp_census_list))
     hosp_census_today_series = max_pats_series.filter([report_date])
     try:
         hosp_census_today = hosp_census_today_series[0]
     except IndexError:
         raise Exception("Input file does not contain the report date. Date=%s, File=%s" % (
                 report_date.isoformat(), data_path))
+    assert hosp_census_today == hosp_census_lookback[0]
     print("Patients on report date: %s" % hosp_census_today)
     print("to_frame")
     max_pats_df = max_pats_series.to_frame()
@@ -255,7 +264,7 @@ def load_hospital_census_data(report_date):
     # Rename columns to match new data file format
     max_pats_df.columns = HOSP_DATA_FILE_COLUMN_NAMES
     print("RENAMED COLUMNS", max_pats_df)
-    return max_pats_df, hosp_census_today
+    return max_pats_df, hosp_census_lookback
 
 def load_newstyle_hospital_census_data(report_date):
     print("load_newstyle_hospital_census_data")
@@ -273,36 +282,37 @@ def load_newstyle_hospital_census_data(report_date):
     print(report_date)
     pos_cen_today_df = census_df[HOSP_DATA_COLNAME_TESTRESULTCOUNT]
     print(pos_cen_today_df)
-    positive_census_today_series = (
-        pos_cen_today_df.filter([report_date])
-    )
+    positive_census_today_series = pos_cen_today_df.filter([report_date])
+    hosp_census_lookback = list(reversed(positive_census_today_series.tolist()))
     print(positive_census_today_series)
     positive_census_today = positive_census_today_series[0]
     print("TODAY'S POSITIVE COUNT:", positive_census_today)
-    return census_df, positive_census_today
+    assert hosp_census_lookback[0] == positive_census_today
+    return census_df, hosp_census_lookback
 
-def data_based_variations(day, old_style_inputs):
+def data_based_variations(report_date, old_style_inputs):
     print("data_based_variations")
     if old_style_inputs:
-        hosp_census_df, patients_today = load_hospital_census_data(day)
+        hosp_census_df, hosp_census_lookback = load_hospital_census_data(report_date)
     else:
-        hosp_census_df, patients_today = load_newstyle_hospital_census_data(day)
+        hosp_census_df, hosp_census_lookback = load_newstyle_hospital_census_data(report_date)
     print("LOAD COMPLETE")
     print(hosp_census_df)
     print(hosp_census_df.dtypes)
-    print("Patients today: %s" % patients_today)
+    print("Patients today: %s" % hosp_census_lookback[0])
     base = dict(BASE_PARAMS)
-    base["current_hospitalized"] = patients_today
+    base["hosp_census_lookback"] = hosp_census_lookback
+    base["current_date"] = report_date
     varying_params = [
         VARYING_PARAMS[k] for k in [
             "doubling_time", "relative_contact_rate", "mitigation_date",
             "hospitalized", "relative_icu_rate", "relative_vent_rate",
+            "end_date_days_back",
         ]
     ]
     param_set = (
-        base, day, REGIONS, *varying_params
+        base, REGIONS, *varying_params
     )
-    #write_model_outputs_for_permutations(*param_set)
     start_time = datetime.datetime.now()
     print("Beginning fit: %s" % start_time.isoformat())
     find_best_fitting_params(hosp_census_df, *param_set)
@@ -310,23 +320,12 @@ def data_based_variations(day, old_style_inputs):
     print("Completed fit: %s" % compl_time.isoformat())
     print("Elapsed time:", (compl_time - start_time).total_seconds())
 
-def write_model_outputs_for_permutations(
-            base_params, current_date, regions, doubling_times,
-            relative_contact_rates, mitigation_dates
-            ):
-    print("write_model_outputs_for_permutations")
-    for p in generate_param_permutations(
-            base_params, current_date, regions, doubling_times,
-            relative_contact_rates, mitigation_dates,
-            hospitalized, icu, ventilated,
-            ):
-        write_model_outputs(p)
-
 def find_best_fitting_params(
     hosp_census_df,
-    base_params, day, regions, doubling_times,
+    base_params, regions, doubling_times,
     relative_contact_rates, mitigation_dates,
     hospitalized, rel_icu_rate, rel_vent_rate,
+    end_date_days_back,
 ):
     print("find_best_fitting_params")
     best = {}
@@ -336,15 +335,17 @@ def find_best_fitting_params(
     hosp_dates = hosp_census_df.dropna().index
     print("hosp_dates\n", hosp_dates)
     params_list = generate_param_permutations(
-        base_params, day, regions, list(doubling_times),
+        base_params, regions, list(doubling_times),
         list(relative_contact_rates), mitigation_dates,
         hospitalized, rel_icu_rate, rel_vent_rate,
+        end_date_days_back,
         )
     with open("PARAMS.txt", "w") as f:
         for p in params_list:
             print(p, file=f)
     is_first_batch = True
-    output_file_path = os.path.join(OUTPUT_DIR, "PennModelFit_Combined_%s.csv" % day.isoformat())
+    output_file_path = os.path.join(OUTPUT_DIR, "PennModelFit_Combined_%s_%s.csv" % (
+        base_params["current_date"].isoformat(), now_timestamp())
     print("Writing to file:", output_file_path)
     with open(output_file_path, "w") as output_file:
         region_results = {}
@@ -369,7 +370,7 @@ def find_best_fitting_params(
                 #print(matched_hosp_census_df[HOSP_DATA_COLNAME_TOTAL_PATS])
                 #print(matched_pred_census_df[PENNMODEL_COLNAME_HOSPITALIZED])
                 if region_name in region_results:
-                    print("CURRENT POP:", p["current_hospitalized"])
+                    #print("CURRENT POP:", final_p["current_hospitalized"])
                     predict_for_all_regions(region_results, is_first_batch, output_file)
                     is_first_batch = False
                     region_results = {}
@@ -385,7 +386,7 @@ def find_best_fitting_params(
                 with open(ERRORS_FILE, "a") as errfile:
                     print("Errors in param set:", p, file=errfile)
                     traceback.print_exc(file=errfile)
-    print("Closed file:", output_file_path)
+    print("Closed file:", output_file_path.replace("\"", "/"))
 
 def concat_dataframes(dataframes):
     return functools.reduce(lambda a, b: a.append(b), dataframes)
@@ -428,16 +429,13 @@ def predict_for_all_regions(region_results, is_first_batch, output_file):
         .max()
     )
     #print("actual_df", actual_df)
-    #print("compiled_results_df[2]", compiled_results_df[2])
     predict_df = (
         combined_predict_df
-        #.set_index("date")
         .resample("D")[PENNMODEL_COLNAME_HOSPITALIZED]
         .sum()
     )
     #print("predict_df", predict_df)
     mse = mean_squared_error(actual_df, predict_df)
-    #print(region_results)
     print("MSE:", mse)
     midpoint_index = int(actual_df.size/2);
     print("SIZE", actual_df.size)
@@ -452,7 +450,6 @@ def predict_for_all_regions(region_results, is_first_batch, output_file):
         predict_df.iloc[-1],
     ]
     mse_endpoints = mean_squared_error(actual_endpoints, predict_endpoints)
-    #print(actual_df)
     print(actual_endpoints, predict_endpoints, mse_endpoints)
     write_fit_rows(
         common_params(params_list),
@@ -483,12 +480,14 @@ def write_fit_rows(p, final_p, census_df, mse, is_first_batch, output_file):
         df["mitigation_date"] = p["mitigation_date"]
         df["mse"] = mse
         df["run_date"] = p["current_date"]
+        df["end_date_days_back"] = p["end_date_days_back"]
         df["hospitalized_rate"] = p["hospitalized"].rate
         df["hospitalized_days"] = p["hospitalized"].days
         df["icu_rate"] = final_p["icu"].rate
         df["icu_days"] = final_p["icu"].days
         df["ventilated_rate"] = final_p["ventilated"].rate
         df["ventilated_days"] = final_p["ventilated"].days
+        df["current_hospitalized"] = final_p["current_hospitalized"]
     except KeyError as e:
         print("EXCEPTION IN WRITE:", e, file=sys.stderr)
         with open(ERRORS_FILE, "a") as errfile:
@@ -507,12 +506,22 @@ def write_fit_rows(p, final_p, census_df, mse, is_first_batch, output_file):
 def rounded_percent(pct):
     return int(100 * pct)
 
+def now_timestamp():
+    ts = datetime.datetime.now().isoformat()
+    ts = re.sub(r"[^\d]", "", ts)
+    return ts[:12]
+
 def get_model_from_params(parameters):
     #print("PARAMETERS PRINT", parameters)
     p = { **parameters }
     del p["param_set_id"]
+    days_back = p["end_date_days_back"])
+    del p["end_date_days_back"]
+    p["current_date"] = \
+        p["current_date"] - datetime.timedelta(days=days_back)
     p["region"] = Regions(**{ p["region_name"]: p["population"] })
-    p["current_hospitalized"] = p["current_hospitalized"] * p["hosp_pop_share"]
+    curr_hosp = p["hosp_census_lookback"][days_back]
+    p["current_hospitalized"] = curr_hosp * p["hosp_pop_share"]
     del p["region_name"]
     del p["hosp_pop_share"]
     icu_rate = p["relative_icu_rate"] * p["hospitalized"].rate
@@ -525,19 +534,6 @@ def get_model_from_params(parameters):
     params_obj = Parameters(**p)
     m = penn_chime.models.SimSirModel(params_obj)
     return m, p
-
-def write_model_outputs(parameters, filename_annotation = None):
-    p = parameters
-    day = p["current_date"]
-    m = get_model_from_params(p)
-    charts = [
-        ["admits", m.admits_df],
-        ["census", m.census_df],
-        ["simsir", m.sim_sir_w_date_df]
-    ]
-    for chart_name, df in charts:
-        path = output_file_path("PennModel", filename_annotation, chart_name, p)
-        df.to_csv(path)
 
 if __name__ == "__main__":
     if os.path.exists(ERRORS_FILE):
