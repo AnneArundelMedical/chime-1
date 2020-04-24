@@ -283,7 +283,7 @@ def load_newstyle_hospital_census_data(report_date):
     pos_cen_today_df = census_df[HOSP_DATA_COLNAME_TESTRESULTCOUNT]
     print(pos_cen_today_df)
     positive_census_today_series = pos_cen_today_df.filter([report_date])
-    hosp_census_lookback = list(reversed(positive_census_today_series.tolist()))
+    hosp_census_lookback = list(reversed(pos_cen_today_df.tolist()))
     print(positive_census_today_series)
     positive_census_today = positive_census_today_series[0]
     print("TODAY'S POSITIVE COUNT:", positive_census_today)
@@ -345,7 +345,7 @@ def find_best_fitting_params(
             print(p, file=f)
     is_first_batch = True
     output_file_path = os.path.join(OUTPUT_DIR, "PennModelFit_Combined_%s_%s.csv" % (
-        base_params["current_date"].isoformat(), now_timestamp())
+        base_params["current_date"].isoformat(), now_timestamp()))
     print("Writing to file:", output_file_path)
     with open(output_file_path, "w") as output_file:
         region_results = {}
@@ -382,10 +382,12 @@ def find_best_fitting_params(
                     "final_params": final_p,
                 }
             except Exception as e:
-                print("ERROR:", e)
+                print("ERROR:")
+                traceback.print_exc()
                 with open(ERRORS_FILE, "a") as errfile:
                     print("Errors in param set:", p, file=errfile)
                     traceback.print_exc(file=errfile)
+                #sys.exit(1) # FIXME: REMOVE THIS LINE!!!!!!!!!!!!!!!!!!
     print("Closed file:", output_file_path.replace("\"", "/"))
 
 def concat_dataframes(dataframes):
@@ -407,6 +409,7 @@ def common_params(params_list):
 
 def predict_for_all_regions(region_results, is_first_batch, output_file):
     region_results_list = list(region_results.values())
+    first_region_params = region_results_list[0]["params"]
     final_params = region_results_list[0]["final_params"]
     combined_actual_df = concat_dataframes(
         [ r["matched_actual_census_df"] for r in region_results_list ])
@@ -438,17 +441,15 @@ def predict_for_all_regions(region_results, is_first_batch, output_file):
     mse = mean_squared_error(actual_df, predict_df)
     print("MSE:", mse)
     midpoint_index = int(actual_df.size/2);
+    data_len = actual_df.size
+    indices = sorted([
+        int(x)
+        for x in (0, data_len/2, data_len-1,
+                  data_len - first_region_params["end_date_days_back"])
+    ])
     print("SIZE", actual_df.size)
-    actual_endpoints = [
-        actual_df.iloc[1],
-        actual_df.iloc[midpoint_index],
-        actual_df.iloc[-1],
-    ]
-    predict_endpoints = [
-        predict_df.iloc[1],
-        predict_df.iloc[midpoint_index],
-        predict_df.iloc[-1],
-    ]
+    actual_endpoints = [ actual_df.iloc[x] for x in indices ]
+    predict_endpoints = [ predict_df.iloc[x] for x in indices ]
     mse_endpoints = mean_squared_error(actual_endpoints, predict_endpoints)
     print(actual_endpoints, predict_endpoints, mse_endpoints)
     write_fit_rows(
@@ -515,13 +516,15 @@ def get_model_from_params(parameters):
     #print("PARAMETERS PRINT", parameters)
     p = { **parameters }
     del p["param_set_id"]
-    days_back = p["end_date_days_back"])
+    days_back = p["end_date_days_back"]
     del p["end_date_days_back"]
     p["current_date"] = \
         p["current_date"] - datetime.timedelta(days=days_back)
     p["region"] = Regions(**{ p["region_name"]: p["population"] })
+    #print(p["hosp_census_lookback"])
     curr_hosp = p["hosp_census_lookback"][days_back]
-    p["current_hospitalized"] = curr_hosp * p["hosp_pop_share"]
+    del p["hosp_census_lookback"]
+    p["current_hospitalized"] = round(curr_hosp * p["hosp_pop_share"])
     del p["region_name"]
     del p["hosp_pop_share"]
     icu_rate = p["relative_icu_rate"] * p["hospitalized"].rate
@@ -531,6 +534,7 @@ def get_model_from_params(parameters):
     del p["relative_icu_rate"]
     del p["relative_vent_rate"]
     del p["icu_days"]
+    print(p)
     params_obj = Parameters(**p)
     m = penn_chime.models.SimSirModel(params_obj)
     return m, p
