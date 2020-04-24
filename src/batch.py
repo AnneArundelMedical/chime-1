@@ -17,7 +17,7 @@ INPUT_DIR = "input"
 
 ERRORS_FILE = "ERRORS.txt"
 
-USE_DOUBLING_TIME = True
+USE_DOUBLING_TIME = False
 
 
 penn_chime.parameters.PRINT_PARAMS = False
@@ -30,9 +30,12 @@ VARYING_PARAMS = {
         list( rcr/100.0 for rcr in range(10, 81, 10) ),
     "mitigation_date":
         [
-            datetime.date(2020, 3, 24),
-            datetime.date(2020, 4, 1),
+            #datetime.date(2020, 3, 24),
+            #datetime.date(2020, 4, 1),
             #datetime.date(2020, 4, 8),
+            datetime.date(2020, 4, 5),
+            datetime.date(2020, 4, 7),
+            datetime.date(2020, 4, 10),
         ],
         #[ datetime.date(2020, 3, 23) ]
         #list( datetime.date(2020, 3, 15) + datetime.timedelta(n)
@@ -41,7 +44,7 @@ VARYING_PARAMS = {
         Disposition(pct/1000.0, days) for (pct, days)
         in itertools.product(
             range(5, 41, 5),
-            range(5, 8, 1),
+            [5] #range(5, 8, 1),
         )
     ),
     "icu": list(
