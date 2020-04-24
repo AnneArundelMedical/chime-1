@@ -49,7 +49,7 @@ mitigation_date,hospitalized_rate,mse,run_date,hospitalized_days,icu_rate,icu_da
 create index ix_cpm_psi on CovidPennModel ([param_set_id]);
 
 bulk insert CovidPennModel
-from 'D:\PennModelFit_Combined_2020-04-23_0424.csv'
+from 'D:\PennModelFit_Combined_2020-04-23_04241221.csv'
 with (firstrow=2, fieldterminator=',', rowterminator='\r\n')
 ;
 
