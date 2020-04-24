@@ -47,9 +47,17 @@ VARYING_PARAMS = {
             [5] #range(5, 8, 1),
         )
     ),
+    """
     "icu": list(
         Disposition(.013, days) for days in range(7, 11, 1)
     ),
+    """
+    "relative_icu_rate": [
+        pct/100.0 for pct in range(20, 51, 10)
+    ],
+    "relative_vent_rate": [
+        pct/100.0 for pct in range(70, 91, 10)
+    ]
 }
 
 HOSP_DATA_OLD_COLNAME_DATE = "[Census.CalculatedValue]"
@@ -131,12 +139,12 @@ def add_region_share():
 add_region_share()
 
 BASE_PARAMS = {
-    "current_hospitalized": 14,
+    #"current_hospitalized": 14,
     # rates for whole pop
-    "hospitalized": Disposition(.044, 10), # 6 or maybe 5
-    "icu": Disposition(.013, 10), # ICU LOS 8
+    #"hospitalized": Disposition(.044, 10), # 6 or maybe 5
+    #"icu": Disposition(.013, 10), # ICU LOS 8
     "relative_contact_rate": .30,
-    "ventilated": Disposition(.007, 10),
+    #"ventilated": Disposition(.007, 10),
     #"current_date": datetime.date.today(),
     "date_first_hospitalized": datetime.date.fromisoformat("2020-03-12"),
     #"doubling_time": 3.0,
@@ -147,7 +155,7 @@ BASE_PARAMS = {
     #population: Optional[int] = None,
     "recovered": 0,
     #region: Optional[Regions] = None,
-    "relative_contact_rate": .30,
+    #"relative_contact_rate": .30,
 }
 
 def parsedate(ds):
@@ -199,71 +207,13 @@ def combine_params(param_set_id, base_params, current_date,
     p["relative_contact_rate"] = relative_contact_rate
     p["mitigation_date"] = mitigation_date
     p["hospitalized"] = hospitalized
-    p["icu"] = icu
+    icu_rate = p["relative_icu_rate"] * p["hospitalized"].rate
+    vent_rate = p["relative_vent_rate"] * icu_rate
+    p["icu"] = Disposition(p["icu_days"], icu_rate)
+    p["ventilated"] = Disposition(p["icu_days"], vent_rate)
+    del p["relative_icu_rate"]
+    del p["relative_vent_rate"]
     return p
-
-def test_params():
-    TEST_DATE = parsedate("2020-02-01")
-    base_params = {
-        "current_hospitalized": 14,
-        "hospitalized": Disposition(.044, 10),
-        "relative_contact_rate": .30,
-        "current_date": datetime.date.today(),
-        "doubling_time": 3.0,
-        "relative_contact_rate": .30,
-    }
-    current_date = TEST_DATE
-    regions = [ REGIONS[0] ]
-    doubling_times = [ 3.0, 4.0 ]
-    relative_contact_rates = [ .30, .40 ]
-    mitigation_dates = [ parsedate(d) for d in ['2020-02-05', '2020-02-10'] ]
-    params = generate_param_permutations(
-        base_params, current_date, regions, doubling_times,
-        relative_contact_rates, mitigation_dates,
-    )
-
-    print(params)
-
-    assert len(params) == 8
-
-    expected = [
-        { "current_date": TEST_DATE, **REGIONS[0], "region": REGIONS[0],
-          "hospitalized": Disposition(.044, 10), "current_hospitalized": 14,
-          "mitigation_date": parsedate("2020-02-05"),
-          "doubling_time": 3.0, "relative_contact_rate": .30, },
-        { "current_date": TEST_DATE, **REGIONS[0], "region": REGIONS[0],
-          "hospitalized": Disposition(.044, 10), "current_hospitalized": 14,
-          "mitigation_date": parsedate("2020-02-05"),
-          "doubling_time": 4.0, "relative_contact_rate": .30, },
-        { "current_date": TEST_DATE, **REGIONS[0], "region": REGIONS[0],
-          "hospitalized": Disposition(.044, 10), "current_hospitalized": 14,
-          "mitigation_date": parsedate("2020-02-05"),
-          "doubling_time": 3.0, "relative_contact_rate": .40, },
-        { "current_date": TEST_DATE, **REGIONS[0], "region": REGIONS[0],
-          "hospitalized": Disposition(.044, 10), "current_hospitalized": 14,
-          "mitigation_date": parsedate("2020-02-05"),
-          "doubling_time": 4.0, "relative_contact_rate": .40, },
-        { "current_date": TEST_DATE, **REGIONS[0], "region": REGIONS[0],
-          "hospitalized": Disposition(.044, 10), "current_hospitalized": 14,
-          "mitigation_date": parsedate("2020-02-10"),
-          "doubling_time": 3.0, "relative_contact_rate": .30, },
-        { "current_date": TEST_DATE, **REGIONS[0], "region": REGIONS[0],
-          "hospitalized": Disposition(.044, 10), "current_hospitalized": 14,
-          "mitigation_date": parsedate("2020-02-10"),
-          "doubling_time": 4.0, "relative_contact_rate": .30, },
-        { "current_date": TEST_DATE, **REGIONS[0], "region": REGIONS[0],
-          "hospitalized": Disposition(.044, 10), "current_hospitalized": 14,
-          "mitigation_date": parsedate("2020-02-10"),
-          "doubling_time": 3.0, "relative_contact_rate": .40, },
-        { "current_date": TEST_DATE, **REGIONS[0], "region": REGIONS[0],
-          "hospitalized": Disposition(.044, 10), "current_hospitalized": 14,
-          "mitigation_date": parsedate("2020-02-10"),
-          "doubling_time": 4.0, "relative_contact_rate": .40, },
-    ]
-
-    assert len(expected) == len(params)
-    assert lists_equal(expected, expected)
-    assert lists_equal(expected, params)
 
 def lists_equal(a, b):
     if len(a) != len(b):
@@ -337,13 +287,6 @@ def load_newstyle_hospital_census_data(report_date):
     positive_census_today = positive_census_today_series[0]
     print("TODAY'S POSITIVE COUNT:", positive_census_today)
     return census_df, positive_census_today
-
-def original_variations(day):
-    """This is the original report that I did on the first day."""
-    doubling_times = [ 3.0, 3.5, 4.0 ]
-    relative_contact_rates = [ .25, .30, .40 ]
-    param_set = (BASE_PARAMS, REGIONS, doubling_times, relative_contact_rates)
-    write_model_outputs_for_permutations(*param_set)
 
 def data_based_variations(day, old_style_inputs):
     print("data_based_variations")
@@ -565,8 +508,6 @@ def write_fit_rows(p, census_df, mse, is_first_batch, output_file):
         #raise Exception("STOPPING TO DEBUG")
         pass
 
-#{'current_hospitalized': 14, 'hospitalized': Disposition(rate=0.044, days=10), 'icu': Disposition(rate=0.013, days=10), 'relative_contact_rate': 0.2, 'ventilated': Disposition(rate=0.007, days=10), 'current_date': datetime.date(2020, 4, 8), 'doubling_time': 2.8, 'infectious_days': 14, 'n_days': 90, 'recovered': 0, 'region_name': 'Anne Arundel', 'population': 597234, 'market_share': 0.3, 'mitigation_date': datetime.date(2020, 3, 1)}
-
 def rounded_percent(pct):
     return int(100 * pct)
 
@@ -608,7 +549,6 @@ if __name__ == "__main__":
     else:
         today_override = datetime.date.today()
     print("Pandas version:", pd.__version__)
-    #original_variations()
     data_based_variations(today_override, old_style_inputs)
     if os.path.exists(ERRORS_FILE):
         with open(ERRORS_FILE, "r") as f:
