@@ -378,8 +378,10 @@ def find_best_fitting_params(
                     "matched_actual_census_df": matched_hosp_census_df,
                     "matched_predict_census_df": matched_pred_census_df,
                     "params": p,
+                    "final_params": final_p,
                 }
             except Exception as e:
+                print("ERROR:", e)
                 with open(ERRORS_FILE, "a") as errfile:
                     print("Errors in param set:", p, file=errfile)
                     traceback.print_exc(file=errfile)
@@ -404,6 +406,7 @@ def common_params(params_list):
 
 def predict_for_all_regions(region_results, is_first_batch, output_file):
     region_results_list = list(region_results.values())
+    final_params = region_results_list[0]["final_params"]
     combined_actual_df = concat_dataframes(
         [ r["matched_actual_census_df"] for r in region_results_list ])
     combined_predict_df = concat_dataframes(
@@ -453,6 +456,7 @@ def predict_for_all_regions(region_results, is_first_batch, output_file):
     print(actual_endpoints, predict_endpoints, mse_endpoints)
     write_fit_rows(
         common_params(params_list),
+        final_params,
         combined_model_census_df,
         mse,
         is_first_batch,
@@ -468,7 +472,7 @@ def predict_for_all_regions(region_results, is_first_batch, output_file):
 
 ITERS = 0
 
-def write_fit_rows(p, census_df, mse, is_first_batch, output_file):
+def write_fit_rows(p, final_p, census_df, mse, is_first_batch, output_file):
     try:
         df = census_df.dropna().set_index(PENNMODEL_COLNAME_DATE)
         df["relative_contact_rate"] = p["relative_contact_rate"]
@@ -481,10 +485,10 @@ def write_fit_rows(p, census_df, mse, is_first_batch, output_file):
         df["run_date"] = p["current_date"]
         df["hospitalized_rate"] = p["hospitalized"].rate
         df["hospitalized_days"] = p["hospitalized"].days
-        df["icu_rate"] = p["icu"].rate
-        df["icu_days"] = p["icu"].days
-        df["ventilated_rate"] = p["ventilated"].rate
-        df["ventilated_days"] = p["ventilated"].days
+        df["icu_rate"] = final_p["icu"].rate
+        df["icu_days"] = final_p["icu"].days
+        df["ventilated_rate"] = final_p["ventilated"].rate
+        df["ventilated_days"] = final_p["ventilated"].days
     except KeyError as e:
         print("EXCEPTION IN WRITE:", e, file=sys.stderr)
         with open(ERRORS_FILE, "a") as errfile:
