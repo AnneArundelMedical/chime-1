@@ -47,17 +47,12 @@ VARYING_PARAMS = {
             [5] #range(5, 8, 1),
         )
     ),
-    """
-    "icu": list(
-        Disposition(.013, days) for days in range(7, 11, 1)
-    ),
-    """
     "relative_icu_rate": [
         pct/100.0 for pct in range(20, 51, 10)
     ],
     "relative_vent_rate": [
         pct/100.0 for pct in range(70, 91, 10)
-    ]
+    ],
 }
 
 HOSP_DATA_OLD_COLNAME_DATE = "[Census.CalculatedValue]"
@@ -156,6 +151,7 @@ BASE_PARAMS = {
     "recovered": 0,
     #region: Optional[Regions] = None,
     #"relative_contact_rate": .30,
+    "icu_days": 8,
 }
 
 def parsedate(ds):
@@ -164,7 +160,7 @@ def parsedate(ds):
 def generate_param_permutations(
         base_params, current_date, regions, doubling_times,
         relative_contact_rates, mitigation_dates,
-        hospitalized, icu,
+        hospitalized, icu_rate, vent_rate,
         ):
     param_set_id = 0
     params = []
@@ -175,13 +171,13 @@ def generate_param_permutations(
         combinations = itertools.product(
             relative_contact_rates,
             doubling_times,
-            mitigation_dates, hospitalized, icu,
+            mitigation_dates, hospitalized, icu_rate, vent_rate,
             regions, )
     else:
         combinations = itertools.product(
             relative_contact_rates,
             [0],
-            mitigation_dates, hospitalized, icu,
+            mitigation_dates, hospitalized, icu_rate, vent_rate,
             regions, )
     combo_count = 0
     for combo in combinations:
@@ -195,10 +191,11 @@ def generate_param_permutations(
 
 def combine_params(param_set_id, base_params, current_date, 
                    relative_contact_rate, doubling_time,
-                   mitigation_date, hospitalized, icu,
+                   mitigation_date, hospitalized,
+                   relative_icu_rate, relative_vent_rate,
                    region,
                    ):
-    p = { **base_params, **region }
+    p = { **base_params, **region, }
     p["param_set_id"] = param_set_id
     p["current_date"] = current_date
     if USE_DOUBLING_TIME:
@@ -207,12 +204,8 @@ def combine_params(param_set_id, base_params, current_date,
     p["relative_contact_rate"] = relative_contact_rate
     p["mitigation_date"] = mitigation_date
     p["hospitalized"] = hospitalized
-    icu_rate = p["relative_icu_rate"] * p["hospitalized"].rate
-    vent_rate = p["relative_vent_rate"] * icu_rate
-    p["icu"] = Disposition(p["icu_days"], icu_rate)
-    p["ventilated"] = Disposition(p["icu_days"], vent_rate)
-    del p["relative_icu_rate"]
-    del p["relative_vent_rate"]
+    p["relative_icu_rate"] = relative_icu_rate
+    p["relative_vent_rate"] = relative_vent_rate
     return p
 
 def lists_equal(a, b):
@@ -300,15 +293,14 @@ def data_based_variations(day, old_style_inputs):
     print("Patients today: %s" % patients_today)
     base = dict(BASE_PARAMS)
     base["current_hospitalized"] = patients_today
-    doubling_times = VARYING_PARAMS["doubling_time"]
-    relative_contact_rates = VARYING_PARAMS["relative_contact_rate"]
-    mitigation_dates = VARYING_PARAMS["mitigation_date"]
-    hospitalized = VARYING_PARAMS["hospitalized"]
-    icu = VARYING_PARAMS["icu"]
+    varying_params = [
+        VARYING_PARAMS[k] for k in [
+            "doubling_time", "relative_contact_rate", "mitigation_date",
+            "hospitalized", "relative_icu_rate", "relative_vent_rate",
+        ]
+    ]
     param_set = (
-        base, day, REGIONS, doubling_times,
-        relative_contact_rates, mitigation_dates,
-        hospitalized, icu,
+        base, day, REGIONS, *varying_params
     )
     #write_model_outputs_for_permutations(*param_set)
     start_time = datetime.datetime.now()
@@ -326,7 +318,7 @@ def write_model_outputs_for_permutations(
     for p in generate_param_permutations(
             base_params, current_date, regions, doubling_times,
             relative_contact_rates, mitigation_dates,
-            hospitalized, icu,
+            hospitalized, icu, ventilated,
             ):
         write_model_outputs(p)
 
@@ -334,7 +326,7 @@ def find_best_fitting_params(
     hosp_census_df,
     base_params, day, regions, doubling_times,
     relative_contact_rates, mitigation_dates,
-    hospitalized, icu,
+    hospitalized, rel_icu_rate, rel_vent_rate,
 ):
     print("find_best_fitting_params")
     best = {}
@@ -346,7 +338,7 @@ def find_best_fitting_params(
     params_list = generate_param_permutations(
         base_params, day, regions, list(doubling_times),
         list(relative_contact_rates), mitigation_dates,
-        hospitalized, icu,
+        hospitalized, rel_icu_rate, rel_vent_rate,
         )
     with open("PARAMS.txt", "w") as f:
         for p in params_list:
@@ -360,7 +352,7 @@ def find_best_fitting_params(
             try:
                 region_name = p["region_name"]
                 #print("PARAMS PASSED TO MODEL:", p)
-                m = get_model_from_params(p)
+                m, final_p = get_model_from_params(p)
                 census_df = m.census_df
                 #print("census_df\n", census_df)
                 census_df.to_csv(os.path.join(OUTPUT_DIR, "debug-model-census-dump.csv"))
@@ -514,14 +506,21 @@ def rounded_percent(pct):
 def get_model_from_params(parameters):
     #print("PARAMETERS PRINT", parameters)
     p = { **parameters }
+    del p["param_set_id"]
     p["region"] = Regions(**{ p["region_name"]: p["population"] })
     p["current_hospitalized"] = p["current_hospitalized"] * p["hosp_pop_share"]
     del p["region_name"]
     del p["hosp_pop_share"]
-    del p["param_set_id"]
+    icu_rate = p["relative_icu_rate"] * p["hospitalized"].rate
+    vent_rate = p["relative_vent_rate"] * icu_rate
+    p["icu"] = Disposition(icu_rate, p["icu_days"])
+    p["ventilated"] = Disposition(vent_rate, p["icu_days"])
+    del p["relative_icu_rate"]
+    del p["relative_vent_rate"]
+    del p["icu_days"]
     params_obj = Parameters(**p)
     m = penn_chime.models.SimSirModel(params_obj)
-    return m
+    return m, p
 
 def write_model_outputs(parameters, filename_annotation = None):
     p = parameters
