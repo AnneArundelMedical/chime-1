@@ -74,8 +74,21 @@ HOSP_DATA_FILE_COLUMN_NAMES = [
 ]
 
 PENNMODEL_COLNAME_DATE = "date"
+
 PENNMODEL_COLNAME_HOSPITALIZED = "census_hospitalized"
 PENNMODEL_COLNAME_ICU = "census_icu"
+
+PENNMODEL_COLNAME_EVER_HOSP = "ever_hospitalized"
+PENNMODEL_COLNAME_EVER_ICU  = "ever_icu"
+PENNMODEL_COLNAME_EVER_VENT = "ever_ventilated"
+
+PENNMODEL_COLNAME_ADMITS_HOSP = "admits_hospitalized"
+PENNMODEL_COLNAME_ADMITS_ICU  = "admits_icu"
+PENNMODEL_COLNAME_ADMITS_VENT = "admits_ventilated"
+
+PENNMODEL_COLNAME_CENSUS_HOSP = "census_hospitalized"
+PENNMODEL_COLNAME_CENSUS_ICU  = "census_icu"
+PENNMODEL_COLNAME_CENSUS_VENT = "census_ventilated"
 
 def input_file_path(file_date):
     filename = "CovidTestedCensus_%s.csv" % file_date.isoformat()
@@ -372,15 +385,15 @@ def find_best_fitting_params(
                 region_name = p["region_name"]
                 #print("PARAMS PASSED TO MODEL:", p)
                 m, final_p = get_model_from_params(p)
-                census_df = m.census_df
-                #print("census_df\n", census_df)
-                census_df.to_csv(os.path.join(OUTPUT_DIR, "debug-model-census-dump.csv"))
-                census_df = census_df.dropna() # remove rows with NaN values
-                census_df = census_df.set_index(PENNMODEL_COLNAME_DATE);
-                #print("census_df\n", census_df)
-                #print("census_df.dtypes\n", census_df.dtypes)
-                dates_intersection = census_df.index.intersection(hosp_dates)
-                matched_pred_census_df = census_df.loc[dates_intersection]
+                predict_df = m.raw_df
+                #print("predict_df\n", predict_df)
+                #predict_df.to_csv(os.path.join(OUTPUT_DIR, "debug-model-census-dump.csv"))
+                predict_df = predict_df.dropna() # remove rows with NaN values
+                predict_df = predict_df.set_index(PENNMODEL_COLNAME_DATE);
+                #print("predict_df\n", predict_df)
+                #print("predict_df.dtypes\n", predict_df.dtypes)
+                dates_intersection = predict_df.index.intersection(hosp_dates)
+                matched_pred_census_df = predict_df.loc[dates_intersection]
                 #print("matched_pred_census_df\n", matched_pred_census_df)
                 matched_hosp_census_df = hosp_census_df.loc[dates_intersection]
                 #print("matched_hosp_census_df\n", matched_hosp_census_df)
@@ -393,7 +406,7 @@ def find_best_fitting_params(
                     is_first_batch = False
                     region_results = {}
                 region_results[region_name] = {
-                    "model_census_df": m.census_df,
+                    "model_predict_df": m.raw_df,
                     "matched_actual_census_df": matched_hosp_census_df,
                     "matched_predict_census_df": matched_pred_census_df,
                     "params": p,
@@ -433,58 +446,68 @@ def predict_for_all_regions(region_results, is_first_batch, output_file):
         [ r["matched_actual_census_df"] for r in region_results_list ])
     combined_predict_df = concat_dataframes(
         [ r["matched_predict_census_df"] for r in region_results_list ])
-    combined_model_census_df_list = \
-        [ r["model_census_df"] for r in region_results_list ]
+    combined_model_predict_df_list = \
+        [ r["model_predict_df"] for r in region_results_list ]
     params_list = \
         [ r["params"] for r in region_results_list ]
     for i in range(len(region_results_list)):
         for prop_name in ["param_set_id", "region_name", "population", "market_share"]:
-            combined_model_census_df_list[i][prop_name] = params_list[i][prop_name]
-    combined_model_census_df = concat_dataframes(combined_model_census_df_list)
+            combined_model_predict_df_list[i][prop_name] = params_list[i][prop_name]
+    combined_model_predict_df = concat_dataframes(combined_model_predict_df_list)
     group_param_set_id = min(
         [ r["params"]["param_set_id"] for r in region_results_list ])
-    combined_model_census_df["group_param_set_id"] = group_param_set_id
+    combined_model_predict_df["group_param_set_id"] = group_param_set_id
     actual_df = (
         combined_actual_df
-        .resample("D")[HOSP_DATA_COLNAME_TESTRESULTCOUNT]
-        .max()
-    )
-    actual_icu_df = (
-        combined_actual_df
-        .resample("D")[HOSP_DATA_COLNAME_ICUCOUNT]
+        .resample("D")[[
+            HOSP_DATA_COLNAME_TESTRESULTCOUNT,
+            HOSP_DATA_COLNAME_ICUCOUNT,
+        ]]
         .max()
     )
     #print("actual_df", actual_df)
     predict_df = (
         combined_predict_df
-        .resample("D")[PENNMODEL_COLNAME_HOSPITALIZED]
-        .sum()
-    )
-    predict_icu_df = (
-        combined_predict_df
-        .resample("D")[PENNMODEL_COLNAME_ICU]
+        .resample("D")[[
+            PENNMODEL_COLNAME_CENSUS_HOSP,
+            PENNMODEL_COLNAME_CENSUS_ICU,
+        ]]
         .sum()
     )
     #print("predict_df", predict_df)
-    mse = round(mean_squared_error(actual_df, predict_df), 2)
-    mse_icu = round(mean_squared_error(actual_icu_df, predict_icu_df), 2)
-    print("MSE:", mse, "ICU MSE:", mse_icu)
-    midpoint_index = int(actual_df.size/2);
-    data_len = actual_df.size
+    mse, mse_icu = [
+        round(mean_squared_error(actual_df[actual_col], predict_df[predict_col]), 2)
+        for actual_col, predict_col in [
+            (HOSP_DATA_COLNAME_TESTRESULTCOUNT, PENNMODEL_COLNAME_CENSUS_HOSP),
+            (HOSP_DATA_COLNAME_ICUCOUNT, PENNMODEL_COLNAME_CENSUS_ICU),
+        ]
+    ]
+    print("MSE = %s, ICU MSE = %s" % (str(mse), str(mse_icu)))
+    data_len = len(actual_df.index)
+    midpoint_index = int(data_len / 2);
     indices = sorted([
         int(x)
         for x in (0, data_len/2, data_len-1,
                   data_len - first_region_params["end_date_days_back"])
     ])
-    print("SIZE", actual_df.size)
-    actual_endpoints = [ actual_df.iloc[x] for x in indices ]
-    predict_endpoints = [ predict_df.iloc[x] for x in indices ]
+    #print("INDICES:", indices, "; LEN: %d" % data_len)
+    #print(predict_df)
+    #print(predict_df[PENNMODEL_COLNAME_CENSUS_HOSP])
+    #for i in indices:
+    #    print("[%d]=" % i, end="")
+    #    print(actual_df[HOSP_DATA_COLNAME_TESTRESULTCOUNT].iloc[i])
+    actual_endpoints = [
+        actual_df[HOSP_DATA_COLNAME_TESTRESULTCOUNT].iloc[x]
+        for x in indices ]
+    predict_endpoints = [
+        predict_df[PENNMODEL_COLNAME_CENSUS_HOSP].iloc[x]
+        for x in indices ]
     mse_endpoints = mean_squared_error(actual_endpoints, predict_endpoints)
     print(actual_endpoints, predict_endpoints, mse_endpoints)
     write_fit_rows(
         common_params(params_list),
         final_params,
-        combined_model_census_df,
+        combined_model_predict_df,
         mse, mse_icu,
         is_first_batch,
         output_file)
@@ -499,9 +522,9 @@ def predict_for_all_regions(region_results, is_first_batch, output_file):
 
 ITERS = 0
 
-def write_fit_rows(p, final_p, census_df, mse, mse_icu, is_first_batch, output_file):
+def write_fit_rows(p, final_p, predict_df, mse, mse_icu, is_first_batch, output_file):
     try:
-        df = census_df.dropna().set_index(PENNMODEL_COLNAME_DATE)
+        df = predict_df.dropna().set_index(PENNMODEL_COLNAME_DATE)
         df["relative_contact_rate"] = p["relative_contact_rate"]
         df["mitigation_date"] = p["mitigation_date"]
         df["hospitalized_rate"] = p["hospitalized"].rate
@@ -525,9 +548,7 @@ def write_fit_rows(p, final_p, census_df, mse, mse_icu, is_first_batch, output_f
             print(datetime.datetime.now().isoformat(), file=errfile)
             traceback.print_exc(file=errfile)
         return
-    #path = output_file_path("PennModelFit", None, "census", p)
     df.to_csv(output_file, header=is_first_batch)
-    #print("Printing batch:", p["param_set_id"], "Count:", len(df))
     global ITERS
     ITERS = ITERS + 1
     if ITERS == 1:
