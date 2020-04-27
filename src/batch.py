@@ -349,7 +349,10 @@ def data_based_variations(report_date, old_style_inputs):
     find_best_fitting_params(hosp_census_df, *param_set)
     compl_time = datetime.datetime.now()
     print("Completed fit: %s" % compl_time.isoformat())
-    print("Elapsed time:", (compl_time - start_time).total_seconds())
+    elapsed_time_secs = (compl_time - start_time).total_seconds()
+    print("Elapsed time: %d:%d (%s secs)" % (
+        int(elapsed_time_secs % 60), int(elapsed_time_secs / 60),
+         str(elapsed_time_secs)))
 
 def find_best_fitting_params(
     hosp_census_df,
@@ -419,7 +422,7 @@ def find_best_fitting_params(
                     print("Errors in param set:", p, file=errfile)
                     traceback.print_exc(file=errfile)
                 #sys.exit(1) # FIXME: REMOVE THIS LINE!!!!!!!!!!!!!!!!!!
-    print("Closed file:", output_file_path.replace("\"", "/"))
+    print("Closed file:", output_file_path.replace("\\", "/"))
 
 def concat_dataframes(dataframes):
     return functools.reduce(lambda a, b: a.append(b), dataframes)
