@@ -39,6 +39,7 @@ create table CovidPennModel (
   hospitalized_rate real not null,
   --doubling_time real not null,
   mse real not null,
+  mse_icu real not null,
   run_date date not null,
   end_date_days_back int not null,
   hospitalized_days int not null,
@@ -46,6 +47,7 @@ create table CovidPennModel (
   icu_days int not null,
   ventilated_rate real not null,
   ventilated_days int not null,
+  current_hospitalized int not null,
   primary key (run_date, region_name, relative_contact_rate
   /*
   , doubling_time
@@ -56,11 +58,14 @@ create table CovidPennModel (
 );
 
 /*
-date,day,census_hospitalized,census_icu,census_ventilated,param_set_id,region_name,population,market_share,group_param_set_id,relative_contact_rate,
-mitigation_date,hospitalized_rate,mse,run_date,hospitalized_days,icu_rate,icu_days,ventilated_rate,ventilated_days
 
-date,day,susceptible,infected,recovered,ever_infected,ever_hospitalized,hospitalized,ever_icu,icu,ever_ventilated,ventilated,admits_hospitalized,admits_icu,admits_ventilated,census_hospitalized,
-census_icu,census_ventilated,param_set_id,region_name,population,market_share,group_param_set_id,relative_contact_rate,mitigation_date,hospitalized_rate,mse,mse_icu,run_date,end_date_days_back,hospitalized_days,icu_rate,icu_days,ventilated_rate,ventilated_days,current_hospitalized
+date day susceptible infected recovered ever_infected ever_hospitalized
+hospitalized ever_icu icu ever_ventilated ventilated admits_hospitalized
+admits_icu admits_ventilated census_hospitalized census_icu census_ventilated
+param_set_id region_name population market_share group_param_set_id
+relative_contact_rate mitigation_date hospitalized_rate mse mse_icu run_date
+end_date_days_back hospitalized_days icu_rate icu_days ventilated_rate
+ventilated_days current_hospitalized 
 
 2020-03-13,-34,596418.1169857314,768.2639666494831,47.619047619047606,815.8830142685307,1.223824521402796,0.22382452140279618,0.2447649042805592,0.04476490428055921,0.17133543299639145,0.03133
 5432996391466,0.22382452140279618,0.04476490428055921,0.031335432996391466,0.22382452140279618,0.04476490428055921,0.031335432996391466,1,Anne Arundel,597234,0.3,1,0.1,2020-04-05,0.005,128.83,38.03,2020-04-23,7,5,0.001,8,0.0007,8,61
@@ -72,7 +77,7 @@ census_icu,census_ventilated,param_set_id,region_name,population,market_share,gr
 create index ix_cpm_psi on CovidPennModel ([param_set_id]);
 
 bulk insert CovidPennModel
-from 'D:\PennModelFit_Combined_2020-04-23_202004241748.csv'
+from 'D:\PennModelFit_Combined_2020-04-23_202004270816.csv'
 with (firstrow=2, fieldterminator=',', rowterminator='\r\n')
 ;
 
