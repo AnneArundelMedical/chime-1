@@ -313,7 +313,7 @@ def load_newstyle_hospital_census_data(report_date):
                          index_col=[0])
     #print(icu_df)
     #print(icu_df.dtypes)
-    cum_path = input_file_path_cum(report_date)
+    cum_path = input_file_path_cumulative(report_date)
     cum_df = pd.read_csv(cum_path,
                          sep="\t",
                          names=[HOSP_DATA_COLNAME_DATE,
@@ -491,6 +491,7 @@ def predict_for_all_regions(region_results, is_first_batch, output_file):
         .resample("D")[[
             PENNMODEL_COLNAME_CENSUS_HOSP,
             PENNMODEL_COLNAME_CENSUS_ICU,
+            PENNMODEL_COLNAME_EVER_HOSP,
         ]]
         .sum()
     )
@@ -543,7 +544,11 @@ def predict_for_all_regions(region_results, is_first_batch, output_file):
 
 ITERS = 0
 
-def write_fit_rows(p, final_p, predict_df, mse, mse_icu, is_first_batch, output_file):
+def write_fit_rows(
+    p, final_p, predict_df,
+    mse, mse_icu, mse_cum,
+    is_first_batch, output_file,
+):
     try:
         df = predict_df.dropna().set_index(PENNMODEL_COLNAME_DATE)
         df["relative_contact_rate"] = p["relative_contact_rate"]
