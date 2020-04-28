@@ -65,7 +65,8 @@ HOSP_DATA_COLNAME_TRUE_DATETIME = "TRUE_DATETIME"
 HOSP_DATA_COLNAME_DATE = "CensusDate"
 HOSP_DATA_COLNAME_TESTRESULT = "OrderStatus"
 HOSP_DATA_COLNAME_TESTRESULTCOUNT = "OrderStatusCount"
-HOSP_DATA_COLNAME_ICUCOUNT = "IcuCount"
+HOSP_DATA_COLNAME_ICU_COUNT = "IcuCount"
+HOSP_DATA_COLNAME_CUMULATIVE_COUNT = "CumCount"
 
 HOSP_DATA_FILE_COLUMN_NAMES = [
     HOSP_DATA_COLNAME_DATE,
@@ -103,6 +104,11 @@ def input_file_path_newstyle(file_date, version_number):
 
 def input_file_path_icu(file_date):
     base_name = "CovidDailyCensusIcu"
+    filename = "%s_%s.txt" % (base_name, file_date.isoformat())
+    return os.path.join(INPUT_DIR, filename)
+
+def input_file_path_cumulative(file_date):
+    base_name = "CovidDailyCumulative"
     filename = "%s_%s.txt" % (base_name, file_date.isoformat())
     return os.path.join(INPUT_DIR, filename)
 
@@ -302,14 +308,24 @@ def load_newstyle_hospital_census_data(report_date):
     icu_df = pd.read_csv(icu_path,
                          sep="\t",
                          names=[HOSP_DATA_COLNAME_DATE,
-                                HOSP_DATA_COLNAME_ICUCOUNT],
+                                HOSP_DATA_COLNAME_ICU_COUNT],
                          parse_dates=[0],
                          index_col=[0])
     #print(icu_df)
     #print(icu_df.dtypes)
+    cum_path = input_file_path_cum(report_date)
+    cum_df = pd.read_csv(cum_path,
+                         sep="\t",
+                         names=[HOSP_DATA_COLNAME_DATE,
+                                HOSP_DATA_COLNAME_CUMULATIVE_COUNT],
+                         parse_dates=[0],
+                         index_col=[0])
+    #print(cum_df)
+    #print(cum_df.dtypes)
     #print("INDEX", census_df.index)
     #census_df.index.astype("datetime64", copy = False)
-    census_df[HOSP_DATA_COLNAME_ICUCOUNT] = icu_df[HOSP_DATA_COLNAME_ICUCOUNT]
+    census_df[HOSP_DATA_COLNAME_ICU_COUNT] = icu_df[HOSP_DATA_COLNAME_ICU_COUNT]
+    census_df[HOSP_DATA_COLNAME_CUMULATIVE_COUNT] = cum_df[HOSP_DATA_COLNAME_CUMULATIVE_COUNT]
     print(census_df)
     pos_cen_today_df = census_df[HOSP_DATA_COLNAME_TESTRESULTCOUNT]
     print(pos_cen_today_df)
@@ -464,7 +480,8 @@ def predict_for_all_regions(region_results, is_first_batch, output_file):
         combined_actual_df
         .resample("D")[[
             HOSP_DATA_COLNAME_TESTRESULTCOUNT,
-            HOSP_DATA_COLNAME_ICUCOUNT,
+            HOSP_DATA_COLNAME_ICU_COUNT,
+            HOSP_DATA_COLNAME_CUMULATIVE_COUNT,
         ]]
         .max()
     )
@@ -478,14 +495,15 @@ def predict_for_all_regions(region_results, is_first_batch, output_file):
         .sum()
     )
     #print("predict_df", predict_df)
-    mse, mse_icu = [
+    mse, mse_icu, mse_cum = [
         round(mean_squared_error(actual_df[actual_col], predict_df[predict_col]), 2)
         for actual_col, predict_col in [
             (HOSP_DATA_COLNAME_TESTRESULTCOUNT, PENNMODEL_COLNAME_CENSUS_HOSP),
-            (HOSP_DATA_COLNAME_ICUCOUNT, PENNMODEL_COLNAME_CENSUS_ICU),
+            (HOSP_DATA_COLNAME_ICU_COUNT, PENNMODEL_COLNAME_CENSUS_ICU),
+            (HOSP_DATA_COLNAME_CUMULATIVE_COUNT, PENNMODEL_COLNAME_EVER_HOSP),
         ]
     ]
-    print("MSE = %s, ICU MSE = %s" % (str(mse), str(mse_icu)))
+    print("MSE = %s, ICU MSE = %s, CUM MSE = %s" % (str(mse), str(mse_icu), str(mse_cum)))
     data_len = len(actual_df.index)
     midpoint_index = int(data_len / 2);
     indices = sorted([
@@ -511,7 +529,7 @@ def predict_for_all_regions(region_results, is_first_batch, output_file):
         common_params(params_list),
         final_params,
         combined_model_predict_df,
-        mse, mse_icu,
+        mse, mse_icu, mse_cum,
         is_first_batch,
         output_file)
 
@@ -536,6 +554,7 @@ def write_fit_rows(p, final_p, predict_df, mse, mse_icu, is_first_batch, output_
         df["mitigation_date"] = p["mitigation_date"]
         df["mse"] = mse
         df["mse_icu"] = mse_icu
+        df["mse_cum"] = mse_cum
         df["run_date"] = p["current_date"]
         df["end_date_days_back"] = p["end_date_days_back"]
         df["hospitalized_rate"] = p["hospitalized"].rate
