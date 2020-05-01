@@ -73,6 +73,8 @@ class SimSirModel:
             raw = self.run_projection(p, [(self.beta, p.n_days)])
             self.i_day = i_day = int(get_argmin_ds(raw["census_hospitalized"], p.current_hospitalized))
 
+            if (p.current_date - timedelta(days=self.i_day)) > date(2020, 3, 20):
+                raise BadIdayError()
             self.raw = self.run_projection(p, self.gen_policy(p))
 
             logger.info('Set i_day = %s', i_day)
@@ -249,6 +251,7 @@ class SimSirModel:
             (self.beta_t[i], mitigation_periods[i])
             for i in range(len(mitigation_periods))
         ]
+        return policy
         #return [
         #    (self.beta,   pre_mitigation_days),
         #    (self.beta_t, post_mitigation_days),
@@ -435,3 +438,9 @@ def calculate_census(
 
         census = cumsum[los:] - cumsum[:-los]
         raw["census_" + key] = census
+
+class BadIdayError(Exception):
+    #def __init__(self, *args):
+    #    Exception(self, args)
+    pass
+

@@ -17,7 +17,7 @@ INPUT_DIR = "input"
 
 ERRORS_FILE = "ERRORS.txt"
 
-USE_DOUBLING_TIME = True
+USE_DOUBLING_TIME = False
 
 
 penn_chime.parameters.PRINT_PARAMS = False
