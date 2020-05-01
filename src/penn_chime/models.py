@@ -65,8 +65,7 @@ class SimSirModel:
 
             intrinsic_growth_rate = get_growth_rate(p.doubling_time)
 
-            self.beta = get_beta(intrinsic_growth_rate,  gamma, self.susceptible, 0.0)
-            self.beta_t = get_beta(intrinsic_growth_rate, self.gamma, self.susceptible, p.relative_contact_rate)
+            self.update_beta(intrinsic_growth_rate)
 
             self.i_day = 0 # seed to the full length
             raw = self.run_projection(p, [(self.beta, p.n_days)])
@@ -112,9 +111,9 @@ class SimSirModel:
             p.doubling_time = dts[min_loss]
 
             logger.info('Estimated doubling_time: %s', p.doubling_time)
+
             intrinsic_growth_rate = get_growth_rate(p.doubling_time)
-            self.beta = get_beta(intrinsic_growth_rate, self.gamma, self.susceptible, 0.0)
-            self.beta_t = get_beta(intrinsic_growth_rate, self.gamma, self.susceptible, p.relative_contact_rate)
+            self.update_beta(intrinsic_growth_rate)
             self.raw = self.run_projection(p, self.gen_policy(p))
 
             self.population = p.population
@@ -161,12 +160,12 @@ class SimSirModel:
         self.intrinsic_growth_rate = intrinsic_growth_rate
 
         # r_t is r_0 after distancing
-        self.r_t = self.beta_t / gamma * susceptible
         self.r_naught = self.beta / gamma * susceptible
-
-        doubling_time_t = 1.0 / np.log2(
-            self.beta_t * susceptible - gamma + 1)
-        self.doubling_time_t = doubling_time_t
+        self.r_t = []
+        self.doubling_time_t = []
+        for b in self.beta_t:
+            self.r_t.append(b / gamma * susceptible)
+            self.doubling_time_t.append(1.0 / np.log2(b * susceptible - gamma + 1))
 
         self.sim_sir_w_date_df = build_sim_sir_w_date_df(self.raw_df, p.current_date, self.keys)
 
@@ -175,14 +174,31 @@ class SimSirModel:
         self.census_floor_df = build_floor_df(self.census_df, p.dispositions.keys(), "census_")
 
         self.daily_growth_rate = get_growth_rate(p.doubling_time)
-        self.daily_growth_rate_t = get_growth_rate(self.doubling_time_t)
+        self.daily_growth_rate_t = [
+            get_growth_rate()
+            for dt in self.doubling_time_t
+        ]
+
+    def update_beta(self, intrinsic_growth_rate):
+        beta_t = [
+            get_beta(intrinsic_growth_rate,  gamma, self.susceptible, 0.0)
+        ]
+        for (mitigation_date, relative_contact_rate) in self.mitigation_stages:
+            beta_t.append(
+                get_beta(
+                    intrinsic_growth_rate,
+                    self.gamma,
+                    self.susceptible,
+                    relative_contact_rate,
+                ))
+        self.beta_t = beta_t
+        self.beta = beta[0]
 
     def get_argmin_doubling_time(self, p: Parameters, dts):
         losses = np.full(dts.shape[0], np.inf)
         for i, i_dt in enumerate(dts):
             intrinsic_growth_rate = get_growth_rate(i_dt)
-            self.beta = get_beta(intrinsic_growth_rate, self.gamma, self.susceptible, 0.0)
-            self.beta_t = get_beta(intrinsic_growth_rate, self.gamma, self.susceptible, p.relative_contact_rate)
+            self.update_beta(intrinsic_growth_rate)
 
             raw = self.run_projection(p, self.gen_policy(p))
 
@@ -203,23 +219,34 @@ class SimSirModel:
     """
 
     def gen_policy(self, p: Parameters) -> Sequence[Tuple[float, int]]:
-        if p.mitigation_date is not None:
-            mitigation_day = -(p.current_date - p.mitigation_date).days
-        else:
-            mitigation_day = 0
-
-        total_days = self.i_day + p.n_days
-
-        if mitigation_day < -self.i_day:
-            mitigation_day = -self.i_day
-
-        pre_mitigation_days = self.i_day + mitigation_day
-        post_mitigation_days = total_days - pre_mitigation_days
-
-        return [
-            (self.beta,   pre_mitigation_days),
-            (self.beta_t, post_mitigation_days),
+        mitigation_days = [
+            -(p.current_date - p.mitigation_date).days
+            for (mitigation_date, _) in self.mitigation_stages
         ]
+        total_days = self.i_day + p.n_days
+        for i in range(len(mitigation_days)):
+            assert not (mitigation_days[i] < -self.i_day)
+            # Just don't allow mitigation dates earlier than the intitial date.
+            #if mitigation_days[i] < -self.i_day:
+            #    mitigation_days[i] = -self.i_day
+        previous_day = self.i_day
+        mitigation_periods = [0] * len(mitigation_days) + 1
+        days_sum = 0
+        for i in range(len(mitigation_days)):
+            mitigation_periods[i] = previous_day + mitigation_days[i]
+            days_sum += mitigation_periods[i]
+        mitigation_periods[-1] = total_days - days_sum
+        #pre_mitigation_days = self.i_day + mitigation_day
+        #post_mitigation_days = total_days - pre_mitigation_days
+        assert len(self.beta_t) == len(mitigation_periods)
+        policy = [
+            (self.beta_t[i], mitigation_periods[i])
+            for i in range(len(mitigation_periods))
+        ]
+        #return [
+        #    (self.beta,   pre_mitigation_days),
+        #    (self.beta_t, post_mitigation_days),
+        #]
 
     def run_projection(self, p: Parameters, policy: Sequence[Tuple[float, int]]):
         raw = sim_sir(

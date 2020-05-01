@@ -68,12 +68,27 @@ def cast_list(*member_cast_functions):
 ACCEPTED_PARAMETERS = {
     "current_hospitalized": (Positive, None, int, "Currently hospitalized COVID-19 patients (>= 0)"),
     "current_date": (OptionalDate, None, cast_date, "Date on which the forecast should be based"),
-    "date_first_hospitalized": (OptionalDate, None, cast_date, "Date the first patient was hospitalized"),
-    "doubling_time": (OptionalStrictlyPositive, None, float, "Doubling time before social distancing (days)"),
-    "mitigation_stages": (List(Date, Rate), None, cast_list(cast_date, float), "Multiple mitigation dates with associated relative contact rates."),
-    "relative_contact_rate": (Rate, None, float, "Social distancing reduction rate: 0.0 - 1.0"),
-    "mitigation_date": (OptionalDate, None, cast_date, "Date on which social distancing measures too effect"),
-    "infectious_days": (StrictlyPositive, 14, int, "Infectious days"),
+    "date_first_hospitalized": (
+        OptionalDate, None, cast_date,
+        "Date the first patient was hospitalized"
+    ),
+    "doubling_time": (
+        OptionalStrictlyPositive, None, float,
+        "Doubling time before social distancing (days)"
+    ),
+    "mitigation_stages": (
+        List(Date, Rate), None, cast_list(cast_date, float),
+        "Multiple mitigation dates with associated relative contact rates."
+    ),
+    "relative_contact_rate": (
+        Rate, None, float, "Social distancing reduction rate: 0.0 - 1.0"
+    ),
+    "mitigation_date": (
+        OptionalDate, None, cast_date, "Date on which social distancing measures too effect"
+    ),
+    "infectious_days": (
+        StrictlyPositive, 14, int, "Infectious days"
+    ),
     "market_share": (StrictlyPositiveRate, 1.0, float, "Hospital market share (0.00001 - 1.0)"),
     "max_y_axis": (OptionalStrictlyPositive, None, int, None),
     "n_days": (StrictlyPositive, 100, int, "Number of days to project >= 0"),

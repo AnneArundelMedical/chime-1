@@ -28,6 +28,14 @@ VARYING_PARAMS = {
         lise( dt/10.0 for dt in range(14, 26+1, 2) ),
     "relative_contact_rate":
         list( rcr/100.0 for rcr in range(50, 81, 10) ),
+    "mitigation_stages": [
+        # TODO: Vary these more once I have mitigation_stages working.
+        [
+            (datetime.date(2020, 3, 16), 0.1),
+            (datetime.date(2020, 4,  1), 0.3),
+            (datetime.date(2020, 4,  7), 0.5),
+        ],
+    ],
     "mitigation_date":
         [
             #datetime.date(2020, 3, 24),
