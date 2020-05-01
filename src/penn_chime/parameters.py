@@ -13,7 +13,7 @@ import sys, json
 PRINT_PARAMS = False
 
 from .validators import (
-    OptionalValue, Positive, OptionalStrictlyPositive, StrictlyPositive, Rate, StrictlyPositiveRate, Date, OptionalDate, ValDisposition
+    OptionalValue, Positive, OptionalStrictlyPositive, StrictlyPositive, Rate, StrictlyPositiveRate, Date, OptionalDate, ValDisposition, List
     )
 
 # Parameters for each disposition (hospitalized, icu, ventilated)

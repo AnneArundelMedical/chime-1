@@ -42,6 +42,8 @@ class SimSirModel:
 
         self.keys = ("susceptible", "infected", "recovered")
 
+        self.mitigation_stages = p.mitigation_stages
+
         # An estimate of the number of infected people on the day that
         # the first hospitalized case is seen
         #
@@ -181,7 +183,7 @@ class SimSirModel:
 
     def update_beta(self, intrinsic_growth_rate):
         beta_t = [
-            get_beta(intrinsic_growth_rate,  gamma, self.susceptible, 0.0)
+            get_beta(intrinsic_growth_rate, self.gamma, self.susceptible, 0.0)
         ]
         for (mitigation_date, relative_contact_rate) in self.mitigation_stages:
             beta_t.append(
@@ -192,7 +194,7 @@ class SimSirModel:
                     relative_contact_rate,
                 ))
         self.beta_t = beta_t
-        self.beta = beta[0]
+        self.beta = beta_t[0]
 
     def get_argmin_doubling_time(self, p: Parameters, dts):
         losses = np.full(dts.shape[0], np.inf)
@@ -219,18 +221,23 @@ class SimSirModel:
     """
 
     def gen_policy(self, p: Parameters) -> Sequence[Tuple[float, int]]:
+        print(self.mitigation_stages)
         mitigation_days = [
-            -(p.current_date - p.mitigation_date).days
+            -(p.current_date - mitigation_date).days
             for (mitigation_date, _) in self.mitigation_stages
         ]
+        print(mitigation_days)
         total_days = self.i_day + p.n_days
         for i in range(len(mitigation_days)):
-            assert not (mitigation_days[i] < -self.i_day)
+            if mitigation_days[i] < -self.i_day:
+                raise ValueError("Mitigation days (%d) < -i_day (%d)."
+                                 % (mitigation_days[i], -self.i_day))
             # Just don't allow mitigation dates earlier than the intitial date.
             #if mitigation_days[i] < -self.i_day:
             #    mitigation_days[i] = -self.i_day
         previous_day = self.i_day
-        mitigation_periods = [0] * len(mitigation_days) + 1
+        assert len(self.beta_t) == len(mitigation_days) + 1
+        mitigation_periods = [0] * len(self.beta_t)
         days_sum = 0
         for i in range(len(mitigation_days)):
             mitigation_periods[i] = previous_day + mitigation_days[i]
@@ -238,7 +245,6 @@ class SimSirModel:
         mitigation_periods[-1] = total_days - days_sum
         #pre_mitigation_days = self.i_day + mitigation_day
         #post_mitigation_days = total_days - pre_mitigation_days
-        assert len(self.beta_t) == len(mitigation_periods)
         policy = [
             (self.beta_t[i], mitigation_periods[i])
             for i in range(len(mitigation_periods))

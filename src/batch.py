@@ -25,7 +25,7 @@ penn_chime.models.logger.setLevel(logging.CRITICAL)
 
 VARYING_PARAMS = {
     "doubling_time":
-        lise( dt/10.0 for dt in range(14, 26+1, 2) ),
+        list( dt/10.0 for dt in range(14, 26+1, 2) ),
     "relative_contact_rate":
         list( rcr/100.0 for rcr in range(50, 81, 10) ),
     "mitigation_stages": [
@@ -197,6 +197,7 @@ def generate_param_permutations(
     relative_contact_rates, mitigation_dates,
     hospitalized, icu_rate, vent_rate,
     end_date_days_back,
+    mitigation_stages,
 ):
     param_set_id = 0
     params = []
@@ -209,6 +210,7 @@ def generate_param_permutations(
             doubling_times,
             mitigation_dates, hospitalized, icu_rate, vent_rate,
             end_date_days_back,
+            mitigation_stages,
             regions, )
     else:
         combinations = itertools.product(
@@ -216,6 +218,7 @@ def generate_param_permutations(
             [0],
             mitigation_dates, hospitalized, icu_rate, vent_rate,
             end_date_days_back,
+            mitigation_stages,
             regions, )
     combo_count = 0
     for combo in combinations:
@@ -233,6 +236,7 @@ def combine_params(
     mitigation_date, hospitalized,
     relative_icu_rate, relative_vent_rate,
     end_date_days_back,
+    mitigation_stages,
     region,
 ):
     p = { **base_params, **region, }
@@ -246,6 +250,7 @@ def combine_params(
     p["relative_icu_rate"] = relative_icu_rate
     p["relative_vent_rate"] = relative_vent_rate
     p["end_date_days_back"] = end_date_days_back
+    p["mitigation_stages"] = mitigation_stages
     return p
 
 def lists_equal(a, b):
@@ -362,7 +367,7 @@ def data_based_variations(report_date, old_style_inputs):
         VARYING_PARAMS[k] for k in [
             "doubling_time", "relative_contact_rate", "mitigation_date",
             "hospitalized", "relative_icu_rate", "relative_vent_rate",
-            "end_date_days_back",
+            "end_date_days_back", "mitigation_stages",
         ]
     ]
     param_set = (
@@ -384,6 +389,7 @@ def find_best_fitting_params(
     relative_contact_rates, mitigation_dates,
     hospitalized, rel_icu_rate, rel_vent_rate,
     end_date_days_back,
+    mitigation_stages,
 ):
     print("find_best_fitting_params")
     best = {}
@@ -397,6 +403,7 @@ def find_best_fitting_params(
         list(relative_contact_rates), mitigation_dates,
         hospitalized, rel_icu_rate, rel_vent_rate,
         end_date_days_back,
+        mitigation_stages,
         )
     with open("PARAMS.txt", "w") as f:
         for p in params_list:
