@@ -8,12 +8,13 @@ from penn_chime.parameters import Parameters, Disposition, Regions
 import penn_chime.models
 from sklearn.metrics import mean_squared_error
 import datetime
-import sys, json, re, os, os.path
+import sys, json, re, os, os.path, shutil
 import logging
 import functools, itertools, traceback
 
 OUTPUT_DIR = "output"
 INPUT_DIR = "input"
+COPY_PATH = r"""\\aamcvepcndw01\D$\"""
 
 ERRORS_FILE = "ERRORS.txt"
 
@@ -375,15 +376,20 @@ def data_based_variations(report_date, old_style_inputs):
     )
     start_time = datetime.datetime.now()
     print("Beginning fit: %s" % start_time.isoformat())
-    find_best_fitting_params(hosp_census_df, *param_set)
+    output_file_path = os.path.join(OUTPUT_DIR, "PennModelFit_Combined_%s_%s.csv" % (
+        report_date.isoformat(), now_timestamp()))
+    find_best_fitting_params(output_file_path, hosp_census_df, *param_set)
     compl_time = datetime.datetime.now()
     print("Completed fit: %s" % compl_time.isoformat())
     elapsed_time_secs = (compl_time - start_time).total_seconds()
     print("Elapsed time: %d:%d (%s secs)" % (
         int(elapsed_time_secs % 60), int(elapsed_time_secs / 60),
          str(elapsed_time_secs)))
+    if os.path.exists(COPY_PATH):
+        shutil.copyfile(output_file_path, COPY_PATH)
 
 def find_best_fitting_params(
+    output_file_path,
     hosp_census_df,
     base_params, regions, doubling_times,
     relative_contact_rates, mitigation_dates,
@@ -409,8 +415,6 @@ def find_best_fitting_params(
         for p in params_list:
             print(p, file=f)
     is_first_batch = True
-    output_file_path = os.path.join(OUTPUT_DIR, "PennModelFit_Combined_%s_%s.csv" % (
-        base_params["current_date"].isoformat(), now_timestamp()))
     print("Writing to file:", output_file_path)
     with open(output_file_path, "w") as output_file:
         region_results = {}
