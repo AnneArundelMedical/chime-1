@@ -179,7 +179,7 @@ class SimSirModel:
 
         self.daily_growth_rate = get_growth_rate(p.doubling_time)
         self.daily_growth_rate_t = [
-            get_growth_rate()
+            get_growth_rate(dt)
             for dt in self.doubling_time_t
         ]
 
@@ -223,12 +223,12 @@ class SimSirModel:
     """
 
     def gen_policy(self, p: Parameters) -> Sequence[Tuple[float, int]]:
-        print(self.mitigation_stages)
+        #print(self.mitigation_stages)
         mitigation_days = [
             -(p.current_date - mitigation_date).days
             for (mitigation_date, _) in self.mitigation_stages
         ]
-        print(mitigation_days)
+        #print(mitigation_days)
         total_days = self.i_day + p.n_days
         for i in range(len(mitigation_days)):
             if mitigation_days[i] < -self.i_day:
