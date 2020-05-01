@@ -17,7 +17,7 @@ INPUT_DIR = "input"
 
 ERRORS_FILE = "ERRORS.txt"
 
-USE_DOUBLING_TIME = False
+USE_DOUBLING_TIME = True
 
 
 penn_chime.parameters.PRINT_PARAMS = False
@@ -25,9 +25,9 @@ penn_chime.models.logger.setLevel(logging.CRITICAL)
 
 VARYING_PARAMS = {
     "doubling_time":
-        list( dt/10.0 for dt in range(20, 41, 5) ),
+        lise( dt/10.0 for dt in range(14, 26+1, 2) ),
     "relative_contact_rate":
-        list( rcr/100.0 for rcr in range(10, 81, 10) ),
+        list( rcr/100.0 for rcr in range(50, 81, 10) ),
     "mitigation_date":
         [
             #datetime.date(2020, 3, 24),
@@ -533,14 +533,6 @@ def predict_for_all_regions(region_results, is_first_batch, output_file):
         mse, mse_icu, mse_cum,
         is_first_batch,
         output_file)
-
-"""
-    if mse < best[region_name]["score"]:
-        best[region_name]["score"] = mse
-        best[region_name]["params"] = p
-        #print("*" * 60)
-        #print("BEST SCORE: %g" % mse)
-"""
 
 ITERS = 0
 

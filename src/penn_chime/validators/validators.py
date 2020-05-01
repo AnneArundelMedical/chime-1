@@ -102,3 +102,17 @@ class ValDisposition(Validator):
             raise ValueError(f"This parameter must be set")
         Bounded(lower_bound=EPSILON)(value=value.days)
         Rate()(value=value.rate)
+
+class List(Validator):
+    def __init__(self, *member_validators) -> None:
+        self.member_validators = member_validators
+
+    def validate(self, value_list):
+        for value_tuple in value_list:
+            if len(value_tuple) != len(self.member_validators):
+                raise ValueError(f"Tuple length doesn't match expected.")
+            for i in range(len(value_tuple)):
+                mv = self.member_validators[i]
+                value = value_tuple[i]
+                mv(value=value)
+

@@ -52,6 +52,17 @@ class Regions:
 def cast_date(string):
     return datetime.strptime(string, '%Y-%m-%d').date()
 
+def cast_list(*member_cast_functions):
+    def cast_item_tuple(item_tuple):
+        if len(item_tuple) != len(member_cast_functions):
+            raise ValueError("Tuple doesn't match expected length.")
+        return tuple(
+            member_cast_functions[i](item_tuple[i])
+            for i in range(len(item_tuple))
+        )
+    def cast_function(items):
+        return [ cast_item_tuple(item) for item in items ]
+    return cast_function
 
 # Dictionary from parameter names to Tuples containing (validator, default value, cast function, help text)
 ACCEPTED_PARAMETERS = {
@@ -59,6 +70,7 @@ ACCEPTED_PARAMETERS = {
     "current_date": (OptionalDate, None, cast_date, "Date on which the forecast should be based"),
     "date_first_hospitalized": (OptionalDate, None, cast_date, "Date the first patient was hospitalized"),
     "doubling_time": (OptionalStrictlyPositive, None, float, "Doubling time before social distancing (days)"),
+    "mitigation_stages": (List(Date, Rate), None, cast_list(cast_date, float), "Multiple mitigation dates with associated relative contact rates."),
     "relative_contact_rate": (Rate, None, float, "Social distancing reduction rate: 0.0 - 1.0"),
     "mitigation_date": (OptionalDate, None, cast_date, "Date on which social distancing measures too effect"),
     "infectious_days": (StrictlyPositive, 14, int, "Infectious days"),
