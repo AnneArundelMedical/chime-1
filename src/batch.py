@@ -10,11 +10,11 @@ from sklearn.metrics import mean_squared_error
 import datetime
 import sys, json, re, os, os.path, shutil
 import logging
-import functools, itertools, traceback
+import functools, itertools, traceback, hashlib
 
 OUTPUT_DIR = "output"
 INPUT_DIR = "input"
-COPY_PATH = r"""\\aamcvepcndw01\D$\"""
+COPY_PATH = "//aamcvepcndw01/D$/".replace("/", os.sep)
 
 ERRORS_FILE = "ERRORS.txt"
 
@@ -24,18 +24,24 @@ USE_DOUBLING_TIME = False
 penn_chime.parameters.PRINT_PARAMS = False
 penn_chime.models.logger.setLevel(logging.CRITICAL)
 
+relative_contact_rates = [ .15, .3, .5, .7 ]
+
 VARYING_PARAMS = {
     "doubling_time":
         list( dt/10.0 for dt in range(14, 26+1, 2) ),
     "relative_contact_rate":
-        list( rcr/100.0 for rcr in range(50, 81, 10) ),
+        [.30],
+        #list( rcr/100.0 for rcr in range(50, 81, 10) ),
     "mitigation_stages": [
         # TODO: Vary these more once I have mitigation_stages working.
         [
-            (datetime.date(2020, 3, 16), 0.1),
-            (datetime.date(2020, 4,  1), 0.3),
-            (datetime.date(2020, 4,  7), 0.5),
-        ],
+            (datetime.date(2020, 3, 16), a),
+            (datetime.date(2020, 4,  1), b),
+            (datetime.date(2020, 4,  7), c),
+        ]
+        for (a, b, c) in itertools.product(
+            *([ relative_contact_rates ] * 3)
+        )
     ],
     "mitigation_date":
         [
@@ -209,7 +215,7 @@ def generate_param_permutations(
         combinations = itertools.product(
             relative_contact_rates,
             doubling_times,
-            mitigation_dates, hospitalized, icu_rate, vent_rate,
+            [0], hospitalized, icu_rate, vent_rate,
             end_date_days_back,
             mitigation_stages,
             regions, )
@@ -217,7 +223,7 @@ def generate_param_permutations(
         combinations = itertools.product(
             relative_contact_rates,
             [0],
-            mitigation_dates, hospitalized, icu_rate, vent_rate,
+            [datetime.date(2000, 1, 1)], hospitalized, icu_rate, vent_rate,
             end_date_days_back,
             mitigation_stages,
             regions, )
@@ -382,11 +388,17 @@ def data_based_variations(report_date, old_style_inputs):
     compl_time = datetime.datetime.now()
     print("Completed fit: %s" % compl_time.isoformat())
     elapsed_time_secs = (compl_time - start_time).total_seconds()
-    print("Elapsed time: %d:%d (%s secs)" % (
+    print("Elapsed time: %d:%02d (%s secs)" % (
         int(elapsed_time_secs % 60), int(elapsed_time_secs / 60),
          str(elapsed_time_secs)))
     if os.path.exists(COPY_PATH):
-        shutil.copyfile(output_file_path, COPY_PATH)
+        copy_file(output_file_path, COPY_PATH)
+
+def copy_file(from_path, to_path):
+    with open(to_path, "w") as to_file:
+        with open(from_path, "r") as from_file:
+            for line in from_file.readlines():
+                to_file.write(line)
 
 def find_best_fitting_params(
     output_file_path,
@@ -562,12 +574,22 @@ def write_fit_rows(
 ):
     try:
         df = predict_df.dropna().set_index(PENNMODEL_COLNAME_DATE)
-        df["relative_contact_rate"] = p["relative_contact_rate"]
-        df["mitigation_date"] = p["mitigation_date"]
+        mitigation_policy_serialized = str(p["mitigation_stages"])
+        md5 = hashlib.md5()
+        md5.update(mitigation_policy_serialized.encode())
+        mitigation_policy_hash = int.from_bytes(md5.digest()[:8], byteorder="big")
+        df["mitigation_policy_hash"] = mitigation_policy_hash
+        for i in range(3):
+            n = str(i + 1)
+            try:
+                df["mitigation_date_" + n] = p["mitigation_stages"][i][0]
+                df["relative_contact_rate_" + n] = p["mitigation_stages"][i][1]
+            except IndexError:
+                df["mitigation_date_" + n] = None
+                df["relative_contact_rate_" + n] = None
         df["hospitalized_rate"] = p["hospitalized"].rate
         if USE_DOUBLING_TIME:
             df["doubling_time"] = p["doubling_time"]
-        df["mitigation_date"] = p["mitigation_date"]
         df["mse"] = mse
         df["mse_icu"] = mse_icu
         df["mse_cum"] = mse_cum

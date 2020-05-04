@@ -34,8 +34,13 @@ create table CovidPennModel (
   population int not null,
   market_share real not null,
   group_param_set_id int not null,
-  relative_contact_rate real not null,
-  mitigation_date date not null,
+  mitigation_policy_hash bigint not null,
+  mitigation_date_1 date not null,
+  relative_contact_rate_1 real not null,
+  mitigation_date_2 date,
+  relative_contact_rate_2 real,
+  mitigation_date_3 date,
+  relative_contact_rate_3 real,
   hospitalized_rate real not null,
   --doubling_time real not null,
   mse real not null,
@@ -49,13 +54,17 @@ create table CovidPennModel (
   ventilated_rate real not null,
   ventilated_days int not null,
   current_hospitalized int not null,
-  primary key (run_date, region_name, relative_contact_rate
+
+  primary key (run_date, [day], region_name, param_set_id)
+
+  -- mitigation_policy_hash
   /*
   , doubling_time
   --*/
-  , [mitigation_date], [day], end_date_days_back
-  , hospitalized_rate, hospitalized_days, icu_rate, icu_days, ventilated_rate, ventilated_days
-  )
+  --, [mitigation_date]
+  --, [day], end_date_days_back
+  --, hospitalized_rate, hospitalized_days, icu_rate, icu_days, ventilated_rate, ventilated_days
+  --)
 );
 
 /*
@@ -78,7 +87,7 @@ ventilated_days current_hospitalized
 create index ix_cpm_psi on CovidPennModel ([param_set_id]);
 
 bulk insert CovidPennModel
-from 'D:\PennModelFit_Combined_2020-04-23_202004281309.csv'
+from 'D:\PennModelFit_Combined_2020-04-23_202005011442.csv'
 with (firstrow=2, fieldterminator=',', rowterminator='\r\n')
 ;
 
@@ -94,7 +103,10 @@ order by m.mse, m.group_param_set_id, m.region_name, m.day
 
 select m.mse, m.group_param_set_id, m.day
 , sum(m.census_hospitalized) census_hospitalized
-, max(m.mitigation_date) mitigation_date, max(m.[date]) [date]
+, max(m.mitigation_date_1) mitigation_date_1
+, max(m.mitigation_date_2) mitigation_date_2
+, max(m.mitigation_date_3) mitigation_date_3
+, max(m.[date]) [date]
 from (
 select top 10 group_param_set_id, mse
 from CovidPennModel
