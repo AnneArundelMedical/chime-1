@@ -24,52 +24,104 @@ USE_DOUBLING_TIME = False
 penn_chime.parameters.PRINT_PARAMS = False
 penn_chime.models.logger.setLevel(logging.CRITICAL)
 
-relative_contact_rates = [ .15, .3, .5, .7 ]
+def percent_range(lo_bound, hi_bound, step):
+    return [ r/100.0 for r in range(lo_bound, hi_bound + 1, step) ]
 
-VARYING_PARAMS = {
-    "doubling_time":
-        list( dt/10.0 for dt in range(14, 26+1, 2) ),
-    "relative_contact_rate":
-        [.30],
-        #list( rcr/100.0 for rcr in range(50, 81, 10) ),
-    "mitigation_stages": [
-        # TODO: Vary these more once I have mitigation_stages working.
+def get_varying_params(report_date):
+
+    relative_contact_rates = percent_range(10, 90, 10)
+
+    april_1 = datetime.date(2020, 4, 1)
+    last_week = report_date - datetime.timedelta(days=7)
+    midpoint_days_back = int((report_date - april_1).days / 2)
+    midpoint = last_week - datetime.timedelta(days=midpoint_days_back)
+    last_week_rates = percent_range(30, 70, 2)
+
+
+    past_stages = (
+        (april_1, percent_range(10, 30, 10)),
+        (midpoint, percent_range(20, 50, 15)),
+        (last_week, last_week_rates),
+    )
+
+    future_stages = {}
+    for last_week_rate in last_week_rates:
+        fs = []
+        os.append((last_week_rate, last_week_rate, last_week_rate)
+        fs.append((last_week_rate * 1.05, last_week_rate * 1.05, last_week_rate * 1.05)
+        fs.append((last_week_rate * 1.05, last_week_rate * 1.05**2, last_week_rate * 1.05**2)
+        fs.append((last_week_rate * 1.05, last_week_rate * 1.05**2, last_week_rate * 1.05**3)
+        fs.append((last_week_rate * .95, last_week_rate * .95, last_week_rate * .95)
+        fs.append((last_week_rate * .95, last_week_rate * .95**2, last_week_rate * .95**2)
+        fs.append((last_week_rate * .95, last_week_rate * .95**2, last_week_rate * .95**3)
+        future_stages[last_week_rate] = fs
+
+    past_combinations = itertools.product( r for (d, r) in past_stages )
+
+    mitigation_stages_past =  [
         [
-            (datetime.date(2020, 3, 16), a),
-            (datetime.date(2020, 4,  1), b),
-            (datetime.date(2020, 4,  7), c),
+            (april_1, a),
+            (one_week_ago, b)
         ]
         for (a, b, c) in itertools.product(
-            *([ relative_contact_rates ] * 3)
+            [ r/100.0 
+             *([ relative_contact_rates ] * 3) ]
         )
     ],
-    "mitigation_date":
-        [
-            #datetime.date(2020, 3, 24),
-            #datetime.date(2020, 4, 1),
-            #datetime.date(2020, 4, 8),
-            datetime.date(2020, 4, 5),
-            datetime.date(2020, 4, 7),
-            datetime.date(2020, 4, 10),
+
+    return {
+
+        "doubling_time":
+            list( dt/10.0 for dt in range(14, 26+1, 2) ),
+
+        "relative_contact_rate":
+            [.30],
+            #list( rcr/100.0 for rcr in range(50, 81, 10) ),
+
+        "mitigation_stages": [
+            # TODO: Vary these more once I have mitigation_stages working.
+            [
+                (datetime.date(2020, 3, 16), a),
+                (datetime.date(2020, 4,  1), b),
+                (datetime.date(2020, 4,  7), c),
+            ]
+            for (a, b, c) in itertools.product(
+                *([ relative_contact_rates ] * 3)
+            )
         ],
-        #[ datetime.date(2020, 3, 23) ]
-        #list( datetime.date(2020, 3, 15) + datetime.timedelta(n)
-        #      for n in range(0, 17, 2) ),
-    "hospitalized": list(
-        Disposition(pct/1000.0, days) for (pct, days)
-        in itertools.product(
-            range(5, 41, 5),
-            [5] #range(5, 8, 1),
-        )
-    ),
-    "relative_icu_rate": [
-        pct/100.0 for pct in range(20, 51, 10)
-    ],
-    "relative_vent_rate": [
-        pct/100.0 for pct in range(70, 91, 10)
-    ],
-    "end_date_days_back": [ 7, 14 ],
-}
+
+        "mitigation_date":
+            [
+                #datetime.date(2020, 3, 24),
+                #datetime.date(2020, 4, 1),
+                #datetime.date(2020, 4, 8),
+                #datetime.date(2020, 4, 5),
+                #datetime.date(2020, 4, 7),
+                datetime.date(2020, 4, 10),
+            ],
+            #[ datetime.date(2020, 3, 23) ]
+            #list( datetime.date(2020, 3, 15) + datetime.timedelta(n)
+            #      for n in range(0, 17, 2) ),
+
+        "hospitalized": list(
+            Disposition(pct/1000.0, days) for (pct, days)
+            in itertools.product(
+                range(5, 15 + 1, 5),
+                [5] #range(5, 8, 1),
+            )
+        ),
+
+        "relative_icu_rate": [
+            pct/100.0 for pct in range(20, 50 + 1, 15)
+        ],
+
+        "relative_vent_rate": [
+            pct/100.0 for pct in range(70, 90 + 1, 10)
+        ],
+
+        "end_date_days_back": [ 0 ],
+
+    }
 
 HOSP_DATA_OLD_COLNAME_DATE = "[Census.CalculatedValue]"
 HOSP_DATA_OLD_COLNAME_TOTAL_PATS = "Total Patients"
@@ -370,8 +422,9 @@ def data_based_variations(report_date, old_style_inputs):
     base = dict(BASE_PARAMS)
     base["hosp_census_lookback"] = hosp_census_lookback
     base["current_date"] = report_date
+    varying_params_lists = get_varying_params(report_date)
     varying_params = [
-        VARYING_PARAMS[k] for k in [
+        varying_params_lists[k] for k in [
             "doubling_time", "relative_contact_rate", "mitigation_date",
             "hospitalized", "relative_icu_rate", "relative_vent_rate",
             "end_date_days_back", "mitigation_stages",
