@@ -47,27 +47,32 @@ def get_varying_params(report_date):
     future_stages = {}
     for last_week_rate in last_week_rates:
         fs = []
-        os.append((last_week_rate, last_week_rate, last_week_rate)
-        fs.append((last_week_rate * 1.05, last_week_rate * 1.05, last_week_rate * 1.05)
-        fs.append((last_week_rate * 1.05, last_week_rate * 1.05**2, last_week_rate * 1.05**2)
-        fs.append((last_week_rate * 1.05, last_week_rate * 1.05**2, last_week_rate * 1.05**3)
-        fs.append((last_week_rate * .95, last_week_rate * .95, last_week_rate * .95)
-        fs.append((last_week_rate * .95, last_week_rate * .95**2, last_week_rate * .95**2)
-        fs.append((last_week_rate * .95, last_week_rate * .95**2, last_week_rate * .95**3)
+        fs.append((last_week_rate, last_week_rate, last_week_rate))
+        fs.append((last_week_rate * 1.05, last_week_rate * 1.05, last_week_rate * 1.05))
+        fs.append((last_week_rate * 1.05, last_week_rate * 1.05**2, last_week_rate * 1.05**2))
+        fs.append((last_week_rate * 1.05, last_week_rate * 1.05**2, last_week_rate * 1.05**3))
+        fs.append((last_week_rate * .95, last_week_rate * .95, last_week_rate * .95))
+        fs.append((last_week_rate * .95, last_week_rate * .95**2, last_week_rate * .95**2))
+        fs.append((last_week_rate * .95, last_week_rate * .95**2, last_week_rate * .95**3))
         future_stages[last_week_rate] = fs
 
     past_combinations = itertools.product( r for (d, r) in past_stages )
 
-    mitigation_stages_past =  [
-        [
-            (april_1, a),
-            (one_week_ago, b)
-        ]
-        for (a, b, c) in itertools.product(
-            [ r/100.0 
-             *([ relative_contact_rates ] * 3) ]
-        )
-    ],
+    combinations = []
+    for pc in past_combinations:
+        last_week_rate = pc[-1]
+        for fs in future_stages[last_week_rate]:
+            combined = pc + fs
+            combinations.append(combined)
+
+    dates = [ d for (d, r) in past_stages ] + [
+        report_date + datetime.timedelta(days=n) for n in [3,6,9]
+    ]
+
+    mitigation_stages = [
+        list(zip(dates, combo))
+        for combo in combinations
+    ]
 
     return {
 
@@ -78,30 +83,9 @@ def get_varying_params(report_date):
             [.30],
             #list( rcr/100.0 for rcr in range(50, 81, 10) ),
 
-        "mitigation_stages": [
-            # TODO: Vary these more once I have mitigation_stages working.
-            [
-                (datetime.date(2020, 3, 16), a),
-                (datetime.date(2020, 4,  1), b),
-                (datetime.date(2020, 4,  7), c),
-            ]
-            for (a, b, c) in itertools.product(
-                *([ relative_contact_rates ] * 3)
-            )
-        ],
+        "mitigation_stages": mitigation_stages,
 
-        "mitigation_date":
-            [
-                #datetime.date(2020, 3, 24),
-                #datetime.date(2020, 4, 1),
-                #datetime.date(2020, 4, 8),
-                #datetime.date(2020, 4, 5),
-                #datetime.date(2020, 4, 7),
-                datetime.date(2020, 4, 10),
-            ],
-            #[ datetime.date(2020, 3, 23) ]
-            #list( datetime.date(2020, 3, 15) + datetime.timedelta(n)
-            #      for n in range(0, 17, 2) ),
+        "mitigation_date": [ datetime.date(2020, 4, 10), ],
 
         "hospitalized": list(
             Disposition(pct/1000.0, days) for (pct, days)
