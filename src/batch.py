@@ -156,22 +156,28 @@ def input_file_path(file_date):
     filename = "CovidTestedCensus_%s.csv" % file_date.isoformat()
     return os.path.join(INPUT_DIR, filename)
 
+def make_path(base_name, file_date):
+    for bn in base_name:
+        for ext in ["csv", "txt"]:
+            filename = "%s_%s.%s" % (bn, file_date.isoformat(), ext)
+            path = os.path.join(INPUT_DIR, filename)
+            if os.path.exists(path):
+                return (path, "," if ext == "csv" else "\t")
+    raise FileNotFoundError(
+        "Unable to find file with base name one of %s for date '%s'"
+        % ( str(base_name), file_date.isoformat() ))
+
 def input_file_path_newstyle(file_date, version_number):
     base_name = "CovidDailyCensus"
     if version_number:
         base_name = "%sV%d" % (base_name, version_number)
-    filename = "%s_%s.txt" % (base_name, file_date.isoformat())
-    return os.path.join(INPUT_DIR, filename)
+    return make_path(["CovidTested_Census", base_name], file_date)
 
 def input_file_path_icu(file_date):
-    base_name = "CovidDailyCensusIcu"
-    filename = "%s_%s.txt" % (base_name, file_date.isoformat())
-    return os.path.join(INPUT_DIR, filename)
+    return make_path(["CovidTested_Icu", "CovidDailyCensusIcu"], file_date)
 
 def input_file_path_cumulative(file_date):
-    base_name = "CovidDailyCumulative"
-    filename = "%s_%s.txt" % (base_name, file_date.isoformat())
-    return os.path.join(INPUT_DIR, filename)
+    return make_path(["CovidTested_Cumulative", "CovidDailyCumulative"], file_date)
 
 def output_file_path(main_label, sub_label, chart_name, parameters):
     p = parameters
@@ -361,35 +367,39 @@ def load_hospital_census_data(report_date):
 def load_newstyle_hospital_census_data(report_date):
     print("load_newstyle_hospital_census_data")
     print("REPORT DATE:", report_date)
-    data_path = input_file_path_newstyle(report_date, 2)
+    data_path, sep = input_file_path_newstyle(report_date, 2)
     print("DATA SOURCE FILE:", data_path)
     census_df = pd.read_csv(data_path,
-                            sep="\t",
-                            names=HOSP_DATA_FILE_COLUMN_NAMES,
+                            sep=sep,
+                            names=[HOSP_DATA_COLNAME_DATE,
+                                   HOSP_DATA_COLNAME_TESTRESULTCOUNT],
                             parse_dates=[0],
                             index_col=[0])
-    #print(census_df)
-    #print(census_df.dtypes)
-    icu_path = input_file_path_icu(report_date)
+    print(census_df)
+    print(census_df.dtypes)
+    icu_path, sep = input_file_path_icu(report_date)
     icu_df = pd.read_csv(icu_path,
-                         sep="\t",
+                         sep=sep,
                          names=[HOSP_DATA_COLNAME_DATE,
                                 HOSP_DATA_COLNAME_ICU_COUNT],
                          parse_dates=[0],
                          index_col=[0])
-    #print(icu_df)
-    #print(icu_df.dtypes)
-    cum_path = input_file_path_cumulative(report_date)
+    print(icu_df)
+    print(icu_df.dtypes)
+    cum_path, sep = input_file_path_cumulative(report_date)
     cum_df = pd.read_csv(cum_path,
-                         sep="\t",
+                         sep=sep,
                          names=[HOSP_DATA_COLNAME_DATE,
                                 HOSP_DATA_COLNAME_CUMULATIVE_COUNT],
                          parse_dates=[0],
                          index_col=[0])
-    #print(cum_df)
-    #print(cum_df.dtypes)
+    print(cum_df)
+    print(cum_df.dtypes)
     #print("INDEX", census_df.index)
     #census_df.index.astype("datetime64", copy = False)
+    print("Sizes:", {"census": census_df.size, "icu": icu_df.size, "cum": cum_df.size })
+    assert census_df.size == icu_df.size
+    assert census_df.size == cum_df.size
     census_df[HOSP_DATA_COLNAME_ICU_COUNT] = icu_df[HOSP_DATA_COLNAME_ICU_COUNT]
     census_df[HOSP_DATA_COLNAME_CUMULATIVE_COUNT] = cum_df[HOSP_DATA_COLNAME_CUMULATIVE_COUNT]
     print(census_df)
