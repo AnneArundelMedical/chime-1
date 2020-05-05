@@ -228,7 +228,7 @@ class SimSirModel:
             -(p.current_date - mitigation_date).days
             for (mitigation_date, _) in self.mitigation_stages
         ]
-        #print(mitigation_days)
+        print("MDs:", mitigation_days)
         total_days = self.i_day + p.n_days
         for i in range(len(mitigation_days)):
             if mitigation_days[i] < -self.i_day:
@@ -238,24 +238,26 @@ class SimSirModel:
             #if mitigation_days[i] < -self.i_day:
             #    mitigation_days[i] = -self.i_day
         previous_day = self.i_day
-        assert len(self.beta_t) == len(mitigation_days) + 1
-        mitigation_periods = [0] * len(self.beta_t)
-        days_sum = 0
-        for i in range(len(mitigation_days)):
-            mitigation_periods[i] = previous_day + mitigation_days[i]
-            days_sum += mitigation_periods[i]
-        mitigation_periods[-1] = total_days - days_sum
-        #pre_mitigation_days = self.i_day + mitigation_day
-        #post_mitigation_days = total_days - pre_mitigation_days
-        policy = [
-            (self.beta_t[i], mitigation_periods[i])
-            for i in range(len(mitigation_periods))
+        mitigation_days.insert(0, -previous_day)
+        print("MDs:", mitigation_days)
+        assert len(self.beta_t) == len(mitigation_days)
+        mitigation_periods_lengths = pairwise_difference(mitigation_days)
+        days_remaining = total_days - sum(mitigation_periods_lengths)
+        assert days_remaining > 0
+        mitigation_periods_lengths.append(days_remaining)
+        print("MPLs:", mitigation_periods_lengths)
+        days_sum = sum(mitigation_periods_lengths)
+        assert days_sum == total_days
+        mitigation_periods = [
+            previous_day + days for days in mitigation_periods_lengths
         ]
+        print("BETA:", self.beta_t)
+        print("MPs:", mitigation_periods)
+        assert len(self.beta_t) == len(mitigation_periods)
+        assert len(self.beta_t) == len(mitigation_periods_lengths)
+        policy = list(zip(self.beta_t, mitigation_periods_lengths))
+        print("POLICY:", policy)
         return policy
-        #return [
-        #    (self.beta,   pre_mitigation_days),
-        #    (self.beta_t, post_mitigation_days),
-        #]
 
     def run_projection(self, p: Parameters, policy: Sequence[Tuple[float, int]]):
         raw = sim_sir(
@@ -272,6 +274,10 @@ class SimSirModel:
         calculate_census(raw, self.days)
 
         return raw
+
+
+def pairwise_difference(items):
+    return [ b-a for (a,b) in zip(items[:-1], items[1:]) ]
 
 
 def get_loss(current_hospitalized, predicted) -> float:
@@ -350,9 +356,11 @@ def sim_sir(
     i_a = np.empty(total_days, "float")
     r_a = np.empty(total_days, "float")
 
+    print(total_days, sum(n for (b,n) in policies), policies)
     index = 0
     for beta, n_days in policies:
         for _ in range(n_days):
+            assert index < total_days
             d_a[index] = d
             s_a[index] = s
             i_a[index] = i

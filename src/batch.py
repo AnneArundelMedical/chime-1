@@ -37,7 +37,6 @@ def get_varying_params(report_date):
     midpoint = last_week - datetime.timedelta(days=midpoint_days_back)
     last_week_rates = percent_range(30, 70, 2)
 
-
     past_stages = (
         (april_1, percent_range(10, 30, 10)),
         (midpoint, percent_range(20, 50, 15)),
@@ -45,18 +44,26 @@ def get_varying_params(report_date):
     )
 
     future_stages = {}
+    delta = 0.05
     for last_week_rate in last_week_rates:
         fs = []
+        inc = 1.0 + delta
+        dec = 1.0 - delta
         fs.append((last_week_rate, last_week_rate, last_week_rate))
-        fs.append((last_week_rate * 1.05, last_week_rate * 1.05, last_week_rate * 1.05))
-        fs.append((last_week_rate * 1.05, last_week_rate * 1.05**2, last_week_rate * 1.05**2))
-        fs.append((last_week_rate * 1.05, last_week_rate * 1.05**2, last_week_rate * 1.05**3))
-        fs.append((last_week_rate * .95, last_week_rate * .95, last_week_rate * .95))
-        fs.append((last_week_rate * .95, last_week_rate * .95**2, last_week_rate * .95**2))
-        fs.append((last_week_rate * .95, last_week_rate * .95**2, last_week_rate * .95**3))
+        fs.append((last_week_rate * inc, last_week_rate * inc, last_week_rate * inc))
+        fs.append((last_week_rate * inc, last_week_rate * inc**2, last_week_rate * inc**2))
+        fs.append((last_week_rate * inc, last_week_rate * inc**2, last_week_rate * inc**3))
+        fs.append((last_week_rate * dec, last_week_rate * dec, last_week_rate * dec))
+        fs.append((last_week_rate * dec, last_week_rate * dec**2, last_week_rate * dec**2))
+        fs.append((last_week_rate * dec, last_week_rate * dec**2, last_week_rate * dec**3))
+        fs = [ tuple( round(r, 4) for r in rs ) for rs in fs ]
         future_stages[last_week_rate] = fs
 
-    past_combinations = itertools.product( r for (d, r) in past_stages )
+    past_combinations = list(itertools.product(*[ r for (d, r) in past_stages ]))
+
+    #print(list( r for (d, r) in past_stages ))
+    print(past_combinations)
+    #print(future_stages)
 
     combinations = []
     for pc in past_combinations:
@@ -68,6 +75,9 @@ def get_varying_params(report_date):
     dates = [ d for (d, r) in past_stages ] + [
         report_date + datetime.timedelta(days=n) for n in [3,6,9]
     ]
+
+    for (d1, d2) in zip(dates[:-1], dates[1:]):
+        assert d1 < d2
 
     mitigation_stages = [
         list(zip(dates, combo))
