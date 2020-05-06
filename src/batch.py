@@ -100,7 +100,8 @@ def get_varying_params(report_date):
         "hospitalized": list(
             Disposition(pct/1000.0, days) for (pct, days)
             in itertools.product(
-                range(5, 15 + 1, 5),
+                #range(5, 15 + 1, 5),
+                [10],
                 [5] #range(5, 8, 1),
             )
         ),
@@ -240,7 +241,7 @@ BASE_PARAMS = {
     "infectious_days": 14,
     #market_share: 1.0,
     #max_y_axis: Optional[int] = None,
-    "n_days": 90,
+    "n_days": 14,
     #population: Optional[int] = None,
     "recovered": 0,
     #region: Optional[Regions] = None,
@@ -526,7 +527,10 @@ def find_best_fitting_params(
                     print("Errors in param set:", p, file=errfile)
                     traceback.print_exc(file=errfile)
                 sys.exit(1) # FIXME: REMOVE THIS LINE!!!!!!!!!!!!!!!!!!
-    print("Closed file:", output_file_path.replace("\\", "/"))
+    output_path_display = output_file_path.replace("\\", "/")
+    print("Closed file:", output_path_display)
+    with open("OUTPUT_PATH.txt", "w") as f:
+        print(output_path_display, file=f)
 
 def concat_dataframes(dataframes):
     return functools.reduce(lambda a, b: a.append(b), dataframes)
