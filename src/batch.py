@@ -525,7 +525,7 @@ def find_best_fitting_params(
                 with open(ERRORS_FILE, "a") as errfile:
                     print("Errors in param set:", p, file=errfile)
                     traceback.print_exc(file=errfile)
-                #sys.exit(1) # FIXME: REMOVE THIS LINE!!!!!!!!!!!!!!!!!!
+                sys.exit(1) # FIXME: REMOVE THIS LINE!!!!!!!!!!!!!!!!!!
     print("Closed file:", output_file_path.replace("\\", "/"))
 
 def concat_dataframes(dataframes):
@@ -595,20 +595,32 @@ def predict_for_all_regions(region_results, is_first_batch, output_file):
     print("MSE = %s, ICU MSE = %s, CUM MSE = %s" % (str(mse), str(mse_icu), str(mse_cum)))
     data_len = len(actual_df.index)
     midpoint_index = int(data_len / 2);
-    indices = sorted([
+    indices = sorted(set([
         int(x)
         for x in (0, data_len/2, data_len-1,
-                  data_len - first_region_params["end_date_days_back"])
-    ])
+                  data_len - first_region_params["end_date_days_back"] - 1)
+    ]))
     #print("INDICES:", indices, "; LEN: %d" % data_len)
     #print(predict_df)
     #print(predict_df[PENNMODEL_COLNAME_CENSUS_HOSP])
     #for i in indices:
     #    print("[%d]=" % i, end="")
     #    print(actual_df[HOSP_DATA_COLNAME_TESTRESULTCOUNT].iloc[i])
-    actual_endpoints = [
-        actual_df[HOSP_DATA_COLNAME_TESTRESULTCOUNT].iloc[x]
-        for x in indices ]
+    #with open("FITDATA.txt", "w") as f:
+    #    print(actual_df, file=f)
+    #    print(actual_df.dtypes, file=f)
+    #    print(predict_df, file=f)
+    #    print(predict_df.dtypes, file=f)
+    #    print("INDICES:", indices, file=f)
+    actual_endpoints = []
+    for x in indices:
+        #print("INDEX:", x, file=f)
+        actual_df_value = actual_df[HOSP_DATA_COLNAME_TESTRESULTCOUNT].iloc[x]
+        #print("VALUE:", actual_df_value, file=f)
+        actual_endpoints.append(actual_df_value)
+    #actual_endpoints = [
+    #    actual_df[HOSP_DATA_COLNAME_TESTRESULTCOUNT].iloc[x]
+    #    for x in indices ]
     predict_endpoints = [
         predict_df[PENNMODEL_COLNAME_CENSUS_HOSP].iloc[x]
         for x in indices ]
@@ -664,6 +676,7 @@ def write_fit_rows(
         with open(ERRORS_FILE, "a") as errfile:
             print(datetime.datetime.now().isoformat(), file=errfile)
             traceback.print_exc(file=errfile)
+        sys.exit(1) # FIXME: REMOVE THIS LINE!!!!!!!!!!!!!!!!!!
         return
     df.to_csv(output_file, header=is_first_batch)
     global ITERS
