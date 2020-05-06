@@ -1,6 +1,8 @@
 #!/usr/bin/python3
 # vim: et ts=8 sts=4 sw=4
 
+import .aamcutil
+
 import pandas as pd
 #from penn_chime.settings import get_defaults
 import penn_chime.parameters
@@ -19,6 +21,7 @@ COPY_PATH = "//aamcvepcndw01/D$/".replace("/", os.sep)
 ERRORS_FILE = "ERRORS.txt"
 
 USE_DOUBLING_TIME = False
+USE_FUTURE_DIVERGENCE = False
 
 
 penn_chime.parameters.PRINT_PARAMS = False
@@ -33,14 +36,14 @@ def get_varying_params(report_date):
 
     april_1 = datetime.date(2020, 4, 1)
     last_week = report_date - datetime.timedelta(days=7)
-    midpoint_days_back = int((report_date - april_1).days / 2)
-    midpoint = last_week - datetime.timedelta(days=midpoint_days_back)
-    last_week_rates = percent_range(30, 70, 2)
+    last_week_rates = percent_range(5, 90, 5)
+    interpolated_days_count = 5
+    interpolated_dates = aamcutil.interpolate_dates(april_1, last_week, interpolated_days_count)
 
     past_stages = (
-        (april_1, percent_range(10, 30, 10)),
-        (midpoint, percent_range(20, 50, 15)),
-        (last_week, last_week_rates),
+        [ (april_1, percent_range(10, 30, 10)) ]
+        + list(zip(interpolated_dates, [percent_range(20, 50, 5)] * len(interpolated_dates)){
+        + [ (last_week, last_week_rates) ]
     )
 
     future_stages = {}
@@ -65,16 +68,21 @@ def get_varying_params(report_date):
     print(past_combinations)
     #print(future_stages)
 
-    combinations = []
-    for pc in past_combinations:
-        last_week_rate = pc[-1]
-        for fs in future_stages[last_week_rate]:
-            combined = pc + fs
-            combinations.append(combined)
+    if not USE_FUTURE_DIVERGENCE:
+        combinations = list(past_combinations)
+    else:
+        combinations = []
+        for pc in past_combinations:
+            last_week_rate = pc[-1]
+            for fs in future_stages[last_week_rate]:
+                combined = pc + fs
+                combinations.append(combined)
 
-    dates = [ d for (d, r) in past_stages ] + [
-        report_date + datetime.timedelta(days=n) for n in [3,6,9]
-    ]
+    dates = [ d for (d, r) in past_stages ]
+    if USE_FUTURE_DIVERGENCE:
+        dates = dates + [
+            report_date + datetime.timedelta(days=n) for n in [3,6,9]
+        ]
 
     for (d1, d2) in zip(dates[:-1], dates[1:]):
         assert d1 < d2
