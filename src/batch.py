@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # vim: et ts=8 sts=4 sw=4
 
-import .aamcutil
+from aamc import interpolate_dates
 
 import pandas as pd
 #from penn_chime.settings import get_defaults
@@ -38,11 +38,11 @@ def get_varying_params(report_date):
     last_week = report_date - datetime.timedelta(days=7)
     last_week_rates = percent_range(5, 90, 5)
     interpolated_days_count = 5
-    interpolated_dates = aamcutil.interpolate_dates(april_1, last_week, interpolated_days_count)
+    interpolated_dates = interpolate_dates(april_1, last_week, interpolated_days_count)
 
     past_stages = (
         [ (april_1, percent_range(10, 30, 10)) ]
-        + list(zip(interpolated_dates, [percent_range(20, 50, 5)] * len(interpolated_dates)){
+        + list(zip(interpolated_dates, [percent_range(20, 50, 5)] * len(interpolated_dates)))
         + [ (last_week, last_week_rates) ]
     )
 
