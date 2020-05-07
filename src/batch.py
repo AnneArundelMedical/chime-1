@@ -706,6 +706,7 @@ def write_fit_rows(
         #raise Exception("STOPPING TO DEBUG")
         pass
     print("ITERATIONS:", ITERS)
+    sys.stdout.flush()
 
 def rounded_percent(pct):
     return int(100 * pct)
