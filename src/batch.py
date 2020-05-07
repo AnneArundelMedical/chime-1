@@ -476,7 +476,7 @@ def find_best_fitting_params(
     end_date_days_back,
     mitigation_stages,
 ):
-    print("find_best_fitting_params")
+    #print("find_best_fitting_params")
     best = {}
     for region in regions:
         region_name = region["region_name"]
@@ -490,10 +490,9 @@ def find_best_fitting_params(
         end_date_days_back,
         mitigation_stages,
         )
-    params_list_generator = generate_param_permutations(*generate_param_arguments)
     with open("PARAMS.txt", "w") as f:
         params_count = 0
-        for p in params_list_generator:
+        for p in generate_param_permutations(*generate_param_arguments):
             print(p, file=f)
             params_count += 1
         print("PARAMETER COUNT:", params_count)
@@ -504,7 +503,7 @@ def find_best_fitting_params(
     print("Writing to file:", output_file_path)
     with open(output_file_path, "w") as output_file:
         region_results = {}
-        for p in params_list_generator:
+        for p in generate_param_permutations(*generate_param_arguments):
             try:
                 region_name = p["region_name"]
                 #print("PARAMS PASSED TO MODEL:", p)
@@ -566,6 +565,7 @@ def common_params(params_list):
     return common
 
 def predict_for_all_regions(region_results, is_first_batch, output_file):
+    #print("predict_for_all_regions")
     region_results_list = list(region_results.values())
     first_region_params = region_results_list[0]["params"]
     final_params = region_results_list[0]["final_params"]
@@ -661,6 +661,7 @@ def write_fit_rows(
     mse, mse_icu, mse_cum,
     is_first_batch, output_file,
 ):
+    #print("write_fit_rows")
     try:
         df = predict_df.dropna().set_index(PENNMODEL_COLNAME_DATE)
         mitigation_policy_serialized = str(p["mitigation_stages"])
@@ -704,6 +705,7 @@ def write_fit_rows(
     if ITERS == 1:
         #raise Exception("STOPPING TO DEBUG")
         pass
+    print("ITERATIONS:", ITERS)
 
 def rounded_percent(pct):
     return int(100 * pct)
