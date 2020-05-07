@@ -32,17 +32,15 @@ def percent_range(lo_bound, hi_bound, step):
 
 def get_varying_params(report_date):
 
-    relative_contact_rates = percent_range(10, 90, 10)
-
     april_1 = datetime.date(2020, 4, 1)
     last_week = report_date - datetime.timedelta(days=7)
-    last_week_rates = percent_range(5, 90, 5)
+    last_week_rates = percent_range(5, 80, 5)
     interpolated_days_count = 5
     interpolated_dates = interpolate_dates(april_1, last_week, interpolated_days_count)
 
     past_stages = (
-        [ (april_1, percent_range(10, 30, 10)) ]
-        + list(zip(interpolated_dates, [percent_range(20, 50, 5)] * len(interpolated_dates)))
+        [ (april_1, percent_range(10, 40, 10)) ]
+        + list(zip(interpolated_dates, [percent_range(20, 50, 10)] * len(interpolated_dates)))
         + [ (last_week, last_week_rates) ]
     )
 
@@ -64,8 +62,10 @@ def get_varying_params(report_date):
 
     past_combinations = list(itertools.product(*[ r for (d, r) in past_stages ]))
 
+    # It's useful to print these when debugging, but for real runs they get too
+    # large for us to want to print them.
     #print(list( r for (d, r) in past_stages ))
-    print(past_combinations)
+    #print(past_combinations)
     #print(future_stages)
 
     if not USE_FUTURE_DIVERGENCE:
@@ -268,7 +268,7 @@ def generate_param_permutations(
     mitigation_stages,
 ):
     param_set_id = 0
-    params = []
+    #params = []
     # Important: regions must be the innermost loop because we compile
     # results from all regions on each iteration.
     #for dt in doubling_times:
@@ -294,9 +294,10 @@ def generate_param_permutations(
         param_set_id = param_set_id + 1
         # None takes the place of dt (doubling time)
         p = combine_params(param_set_id, base_params, *combo)
-        params.append(p)
+        #params.append(p)
+        yield p
     print("Number of parameter combinations:", combo_count)
-    return params
+    #return params
 
 def combine_params(
     param_set_id, base_params,
@@ -482,21 +483,28 @@ def find_best_fitting_params(
         best[region_name] = { "score": 1e10, "params": None }
     hosp_dates = hosp_census_df.dropna().index
     print("hosp_dates\n", hosp_dates)
-    params_list = generate_param_permutations(
+    generate_param_arguments = (
         base_params, regions, list(doubling_times),
         list(relative_contact_rates), mitigation_dates,
         hospitalized, rel_icu_rate, rel_vent_rate,
         end_date_days_back,
         mitigation_stages,
         )
+    params_list_generator = generate_param_permutations(*generate_param_arguments)
     with open("PARAMS.txt", "w") as f:
-        for p in params_list:
+        params_count = 0
+        for p in params_list_generator:
             print(p, file=f)
+            params_count += 1
+        print("PARAMETER COUNT:", params_count)
+        print("PARAMETER COUNT:", params_count, file=f)
+    #print("EXIT EARLY")
+    #sys.exit(0)
     is_first_batch = True
     print("Writing to file:", output_file_path)
     with open(output_file_path, "w") as output_file:
         region_results = {}
-        for p in params_list:
+        for p in params_list_generator:
             try:
                 region_name = p["region_name"]
                 #print("PARAMS PASSED TO MODEL:", p)
