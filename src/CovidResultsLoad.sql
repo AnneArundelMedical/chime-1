@@ -87,7 +87,7 @@ ventilated_days current_hospitalized
 create index ix_cpm_psi on CovidPennModel ([param_set_id]);
 
 bulk insert CovidPennModel
-from 'D:\PennModelFit_Combined_2020-05-04_202005061237.csv'
+from 'D:\PennModelFit_Combined_2020-05-04_202005071919.csv'
 with (firstrow=2, fieldterminator=',', rowterminator='\r\n')
 ;
 

@@ -21,7 +21,7 @@ COPY_PATH = "//aamcvepcndw01/D$/".replace("/", os.sep)
 ERRORS_FILE = "ERRORS.txt"
 
 USE_DOUBLING_TIME = False
-USE_FUTURE_DIVERGENCE = False
+USE_FUTURE_DIVERGENCE = True
 
 
 penn_chime.parameters.PRINT_PARAMS = False
@@ -35,7 +35,7 @@ def get_varying_params(report_date):
     april_1 = datetime.date(2020, 4, 1)
     last_week = report_date - datetime.timedelta(days=7)
     last_week_rates = percent_range(5, 80, 5)
-    interpolated_days_count = 5
+    interpolated_days_count = 1
     interpolated_dates = interpolate_dates(april_1, last_week, interpolated_days_count)
 
     past_stages = (
@@ -490,8 +490,8 @@ def find_best_fitting_params(
         end_date_days_back,
         mitigation_stages,
         )
+    params_count = 0
     with open("PARAMS.txt", "w") as f:
-        params_count = 0
         for p in generate_param_permutations(*generate_param_arguments):
             print(p, file=f)
             params_count += 1
@@ -501,9 +501,17 @@ def find_best_fitting_params(
     #sys.exit(0)
     is_first_batch = True
     print("Writing to file:", output_file_path)
+    params_progress_count = 0
     with open(output_file_path, "w") as output_file:
         region_results = {}
         for p in generate_param_permutations(*generate_param_arguments):
+            params_progress_count += 1
+            progress_message = (
+                "PROGRESS: %d/%d (%f%%)"
+                % (params_progress_count, params_count, round(params_progress_count / params_count, 2)))
+            print(progress_message)
+            with open("PROGRESS.txt", "w") as f:
+                print(progress_message, file=f)
             try:
                 region_name = p["region_name"]
                 #print("PARAMS PASSED TO MODEL:", p)
