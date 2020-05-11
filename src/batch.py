@@ -22,7 +22,7 @@ DIRCONFIG_FILENAME = "dirconfig.ini"
 ERRORS_FILE = "ERRORS.txt"
 
 USE_DOUBLING_TIME = False
-USE_FUTURE_DIVERGENCE = False
+USE_FUTURE_DIVERGENCE = True
 INTERPOLATED_DATES_COUNT = 0
 MITIGATION_DATE_LISTING_COUNT = 3
 
@@ -50,7 +50,7 @@ def get_varying_params(report_date):
         (datetime.date(2020, 4, 21), [.45]),
     ]
     last_week = report_date - datetime.timedelta(days=7)
-    last_week_rates = percent_range(5, 80, 5)
+    last_week_rates = percent_range(55-3*3, 55+3*3, 3)
     interpolated_days_count = INTERPOLATED_DATES_COUNT
     last_fixed_date = fixed_dates[-1][0]
     interpolated_dates = \
@@ -133,11 +133,13 @@ def get_varying_params(report_date):
         ),
 
         "relative_icu_rate": [
-            pct/100.0 for pct in range(20, 50 + 1, 15)
+            #pct/100.0 for pct in range(20, 50 + 1, 15)
+            pct/100.0 for pct in [40]
         ],
 
         "relative_vent_rate": [
-            pct/100.0 for pct in range(70, 90 + 1, 10)
+            #pct/100.0 for pct in range(70, 90 + 1, 10)
+            pct/100.0 for pct in [80]
         ],
 
         "end_date_days_back": [ 0 ],
@@ -757,6 +759,8 @@ def summarize_mitigation_policy(report_date, mitigation_stages):
         [ "future_str", future_str ],
         [ "future_policy_hash", hash_function(future_str) ],
     ]
+    return summaries
+    """
     partial_listing = []
     for i in range(MITIGATION_DATE_LISTING_COUNT):
         n = str(i + 1)
@@ -771,6 +775,7 @@ def summarize_mitigation_policy(report_date, mitigation_stages):
                 ("relative_contact_rate_" + n, None),
             ]
     return summaries + partial_listing
+    """
 
 def mitigation_policy_tostring(mitigation_policy):
     s = [ "%s:%f" % (d.isoformat(), r) for (d, r) in mitigation_policy ]

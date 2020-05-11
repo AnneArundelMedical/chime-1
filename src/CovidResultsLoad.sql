@@ -46,12 +46,12 @@ create table CovidPennModel (
   future_policy_str varchar(max),
   future_policy_hash bigint not null,
 
-  mitigation_date_1 date not null,
-  relative_contact_rate_1 real not null,
-  mitigation_date_2 date,
-  relative_contact_rate_2 real,
-  mitigation_date_3 date,
-  relative_contact_rate_3 real,
+  --mitigation_date_1 date not null,
+  --relative_contact_rate_1 real not null,
+  --mitigation_date_2 date,
+  --relative_contact_rate_2 real,
+  --mitigation_date_3 date,
+  --relative_contact_rate_3 real,
 
   hospitalized_rate real not null,
   --doubling_time real not null,
@@ -104,7 +104,7 @@ with (data_compression = page);
 print 'Index created.';
 
 bulk insert CovidPennModel
-from 'D:\PennModelFit_Combined_2020-05-10_202005111247.csv'
+from 'D:\PennModelFit_Combined_2020-05-10_202005111429.csv'
 with (tablock, firstrow=2, fieldterminator=',', rowterminator='\r\n')
 ;
 
@@ -126,9 +126,9 @@ order by m.mse, m.group_param_set_id, m.region_name, m.day
 
 select m.mse, m.group_param_set_id, m.day
 , sum(m.census_hospitalized) census_hospitalized
-, max(m.mitigation_date_1) mitigation_date_1
-, max(m.mitigation_date_2) mitigation_date_2
-, max(m.mitigation_date_3) mitigation_date_3
+--, max(m.mitigation_date_1) mitigation_date_1
+--, max(m.mitigation_date_2) mitigation_date_2
+--, max(m.mitigation_date_3) mitigation_date_3
 , max(m.[date]) [date]
 from (
 select top 10 group_param_set_id, mse
@@ -144,3 +144,14 @@ select group_param_set_id, count(distinct mse) distinct_mse
 from CovidPennModel
 group by group_param_set_id
 having count(distinct mse) > 1
+
+select *
+from CovidPennModel
+where param_set_id = 37 and past_policy_hash=-7906904041677924221 and future_policy_hash=-3162216497309240828
+order by date
+
+/*
+select distinct
+hospitalized_rate, run_date, end_date_days_back, hospitalized_days,icu_rate,icu_days,ventilated_rate,ventilated_days,current_hospitalized
+from CovidPennModel
+*/
