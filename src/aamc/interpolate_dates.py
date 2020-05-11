@@ -3,6 +3,8 @@
 import datetime
 
 def interpolate_dates(start_date, end_date, interpolated_days_count):
+    if interpolated_days_count == 0:
+        return []
     difference_days = (end_date - start_date).days
     interpolated_days = [int((d+1) * difference_days / (interpolated_days_count+1))
                          for d in range(interpolated_days_count)]
@@ -12,9 +14,9 @@ def interpolate_dates(start_date, end_date, interpolated_days_count):
 
 def test_interpolate_dates():
     s, e = datetime.date(2020, 4, 1), datetime.date(2020, 4, 10)
-    for n in range(9):
-        dates = interpolate_dates(s, e, n+1)
-        assert(len(dates) == n+1)
+    for n in range(10):
+        dates = interpolate_dates(s, e, n)
+        assert(len(dates) == n)
 
 if __name__ == "__main__":
     pass

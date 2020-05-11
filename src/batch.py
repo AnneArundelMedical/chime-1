@@ -23,6 +23,8 @@ ERRORS_FILE = "ERRORS.txt"
 
 USE_DOUBLING_TIME = False
 USE_FUTURE_DIVERGENCE = False
+INTERPOLATED_DATES_COUNT = 0
+MITIGATION_DATE_LISTING_COUNT = 3
 
 start_time = None
 
@@ -42,14 +44,20 @@ def percent_range(lo_bound, hi_bound, step):
 
 def get_varying_params(report_date):
 
-    april_1 = datetime.date(2020, 4, 1)
+    fixed_dates = [
+        (datetime.date(2020, 4, 1), [.2]),
+        (datetime.date(2020, 4, 11), [.25]),
+        (datetime.date(2020, 4, 21), [.45]),
+    ]
     last_week = report_date - datetime.timedelta(days=7)
     last_week_rates = percent_range(5, 80, 5)
-    interpolated_days_count = 2
-    interpolated_dates = interpolate_dates(april_1, last_week, interpolated_days_count)
+    interpolated_days_count = INTERPOLATED_DATES_COUNT
+    last_fixed_date = fixed_dates[-1][0]
+    interpolated_dates = \
+        interpolate_dates(last_fixed_date, last_week, interpolated_days_count)
 
     past_stages = (
-        [ (april_1, percent_range(10, 40, 10)) ]
+        fixed_dates
         + list(zip(interpolated_dates, [percent_range(25, 55, 10)] * len(interpolated_dates)))
         + [ (last_week, last_week_rates) ]
     )
@@ -697,19 +705,11 @@ def write_fit_rows(
     #print("write_fit_rows")
     try:
         df = predict_df.dropna().set_index(PENNMODEL_COLNAME_DATE)
-        mitigation_policy_serialized = str(p["mitigation_stages"])
-        md5 = hashlib.md5()
-        md5.update(mitigation_policy_serialized.encode())
-        mitigation_policy_hash = int.from_bytes(md5.digest()[:8], byteorder="big")
-        df["mitigation_policy_hash"] = mitigation_policy_hash
-        for i in range(3):
-            n = str(i + 1)
-            try:
-                df["mitigation_date_" + n] = p["mitigation_stages"][i][0]
-                df["relative_contact_rate_" + n] = p["mitigation_stages"][i][1]
-            except IndexError:
-                df["mitigation_date_" + n] = None
-                df["relative_contact_rate_" + n] = None
+        mitigation_policy_summ = \
+            summarize_mitigation_policy(p["current_date"], p["mitigation_stages"])
+        for key, val in mitigation_policy_summ:
+            df[key] = val
+        #df["mitigation_policy_hash"] = mitigation_policy_hash
         df["hospitalized_rate"] = p["hospitalized"].rate
         if USE_DOUBLING_TIME:
             df["doubling_time"] = p["doubling_time"]
@@ -740,6 +740,48 @@ def write_fit_rows(
         pass
     print("ITERATIONS:", ITERS)
     sys.stdout.flush()
+
+def summarize_mitigation_policy(report_date, mitigation_stages):
+    complete_policy_str = str(mitigation_stages)
+    past_policy = [ ms for ms in mitigation_stages if ms[0] <= report_date ]
+    future_policy = [ ms for ms in mitigation_stages if ms[0] > report_date ]
+    past_policy_str = str(past_policy)
+    future_policy_str = str(future_policy)
+    hash_function = lambda x: md5(x, 8)
+    summaries = [
+        [ "policy_str", complete_policy_str ],
+        [ "policy_hash", hash_function(complete_policy_str) ],
+        [ "past_policy_str", past_policy_str ],
+        [ "past_policy_hash", hash_function(past_policy_str) ],
+        [ "future_policy_str", future_policy_str ],
+        [ "future_policy_hash", hash_function(future_policy_str) ],
+    ]
+    partial_listing = []
+    for i in range(MITIGATION_DATE_LISTING_COUNT):
+        n = str(i + 1)
+        try:
+            partial_listing += [
+                ("mitigation_date_" + n, "mitigation_stages"[i][0]),
+                ("relative_contact_rate_" + n, "mitigation_stages"[i][1]),
+            ]
+        except IndexError:
+            partial_listing += [
+                ("mitigation_date_" + n, None),
+                ("relative_contact_rate_" + n, None),
+            ]
+    return summaries + partial_listing
+
+def md5(obj, truncate_to_length = 0):
+    s = str(obj)
+    b = s.encode()
+    md5er = hashlib.md5()
+    md5er.update(b)
+    digest = md5er.digest()
+    if truncate_to_length > 0:
+        truncated = digest[:truncate_to_length]
+    else:
+        truncated = digest
+    return int.from_bytes(truncated, byteorder="big")
 
 def rounded_percent(pct):
     return int(100 * pct)
