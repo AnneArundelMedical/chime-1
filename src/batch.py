@@ -742,19 +742,20 @@ def write_fit_rows(
     sys.stdout.flush()
 
 def summarize_mitigation_policy(report_date, mitigation_stages):
-    complete_policy_str = str(mitigation_stages)
     past_policy = [ ms for ms in mitigation_stages if ms[0] <= report_date ]
     future_policy = [ ms for ms in mitigation_stages if ms[0] > report_date ]
-    past_policy_str = str(past_policy)
-    future_policy_str = str(future_policy)
+    complete_str, past_str, future_str = [
+        mitigation_policy_tostring(mp)
+        for mp in [ mitigation_stages, past_policy, future_policy ]
+    ]
     hash_function = lambda x: md5(x, 8)
     summaries = [
-        [ "policy_str", complete_policy_str ],
-        [ "policy_hash", hash_function(complete_policy_str) ],
-        [ "past_policy_str", past_policy_str ],
-        [ "past_policy_hash", hash_function(past_policy_str) ],
-        [ "future_policy_str", future_policy_str ],
-        [ "future_policy_hash", hash_function(future_policy_str) ],
+        [ "policy_str", complete_str ],
+        [ "policy_hash", hash_function(complete_str) ],
+        [ "past_str", past_str ],
+        [ "past_policy_hash", hash_function(past_str) ],
+        [ "future_str", future_str ],
+        [ "future_policy_hash", hash_function(future_str) ],
     ]
     partial_listing = []
     for i in range(MITIGATION_DATE_LISTING_COUNT):
@@ -770,6 +771,10 @@ def summarize_mitigation_policy(report_date, mitigation_stages):
                 ("relative_contact_rate_" + n, None),
             ]
     return summaries + partial_listing
+
+def mitigation_policy_tostring(mitigation_policy):
+    s = [ "%s:%f" % (d.isoformat(), r) for (d, r) in mitigation_policy ]
+    return ";".join(s)
 
 def md5(obj, truncate_to_length = 0):
     s = str(obj)
