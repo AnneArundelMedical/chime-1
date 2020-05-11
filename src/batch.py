@@ -2,6 +2,7 @@
 # vim: et ts=8 sts=4 sw=4
 
 from aamc import interpolate_dates
+from aamc import *
 
 import pandas as pd
 #from penn_chime.settings import get_defaults
@@ -257,10 +258,7 @@ def lists_equal(a, b):
 
 def data_based_variations(report_date, old_style_inputs):
     print("data_based_variations")
-    if old_style_inputs:
-        hosp_census_df, hosp_census_lookback = load_hospital_census_data(report_date)
-    else:
-        hosp_census_df, hosp_census_lookback = load_newstyle_hospital_census_data(report_date)
+    hosp_census_df, hosp_census_lookback = load_qlik_exported_data(report_date)
     print("LOAD COMPLETE")
     print(hosp_census_df)
     print(hosp_census_df.dtypes)
