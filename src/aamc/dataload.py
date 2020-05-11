@@ -9,7 +9,8 @@ import functools, itertools, traceback, hashlib
 
 OUTPUT_DIR_DEFAULT = "output"
 INPUT_DIR = "input"
-QLIK_EXPORT_DATA_PATH = "//dataviz.aahs.org/L$/CovidLogs/CovidCensusSnapshot.csv".replace("/", os.sep)
+QLIK_EXPORT_DATA_PATH = "//dataviz.aahs.org/L$/CovidLogs/".replace("/", os.sep)
+QLIK_EXPORT_DATA_FILENAME = "CovidCensusSnapshot.csv"
 QLIK_EXPORT_DATA_SEP = ","
 COPY_PATH = "//aamcvepcndw01/D$/".replace("/", os.sep)
 DIRCONFIG_FILENAME = "dirconfig.ini"
@@ -151,7 +152,16 @@ def load_hospital_census_data(report_date):
 def load_qlik_exported_data(report_date):
     print("load_qlik_exported_data")
     print("REPORT DATE:", report_date)
-    data_path = QLIK_EXPORT_DATA_PATH
+    data_path = None
+    data_path_candidates = [ QLIK_EXPORT_DATA_PATH, INPUT_DIR ]
+    for p in data_path_candidates:
+        path = os.path.join(p, QLIK_EXPORT_DATA_FILENAME)
+        if os.path.exists(path):
+            data_path = path
+            break
+    else:
+        raise ValueError("File '" + QLIK_EXPORT_DATA_FILENAME
+                         + "' not found in candidate paths: " + str(data_path_candidates))
     sep = QLIK_EXPORT_DATA_SEP
     column_names = [
                 HOSP_DATA_COLNAME_DATE,
