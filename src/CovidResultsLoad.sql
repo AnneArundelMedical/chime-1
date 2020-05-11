@@ -2,8 +2,12 @@
 File column names: date,day,census_hospitalized,census_icu,census_ventilated,region_name,population,market_share,relative_contact_rate,doubling_time,mitigation_date,mse
 */
 
+use CovidModel;
+go
+
 --/*
 drop table CovidPennModel;
+-- truncate table CovidPennModel;
 --*/
 
 /*
@@ -65,7 +69,9 @@ create table CovidPennModel (
   --, [day], end_date_days_back
   --, hospitalized_rate, hospitalized_days, icu_rate, icu_days, ventilated_rate, ventilated_days
   --)
-);
+) with (data_compression = page);
+
+print 'Table created.';
 
 /*
 
@@ -84,14 +90,21 @@ ventilated_days current_hospitalized
 
 */
 
-create index ix_cpm_psi on CovidPennModel ([param_set_id]);
+create index ix_cpm_psi on CovidPennModel ([param_set_id])
+with (data_compression = page);
+
+print 'Index created.';
 
 bulk insert CovidPennModel
-from 'D:\PennModelFit_Combined_2020-05-04_202005071919.csv'
-with (firstrow=2, fieldterminator=',', rowterminator='\r\n')
+from 'D:\PennModelFit_Combined_2020-05-08_202005110212.csv'
+with (tablock, firstrow=2, fieldterminator=',', rowterminator='\r\n')
 ;
 
+print 'Bulk insert complete';
+
 -- date,day,susceptible,infected,recovered,ever_infected,ever_hospitalized,hospitalized,ever_icu,icu,ever_ventilated,ventilated,admits_hospitalized,admits_icu,admits_ventilated,census_hospitalized,census_icu,census_ventilated,param_set_id,region_name,population,market_share,group_param_set_id,mitigation_policy_hash,mitigation_date_1,relative_contact_rate_1,mitigation_date_2,relative_contact_rate_2,mitigation_date_3,relative_contact_rate_3,hospitalized_rate,mse,mse_icu,mse_cum,run_date,end_date_days_back,hospitalized_days,icu_rate,icu_days,ventilated_rate,ventilated_days,current_hospitalized
+
+print 'Beginning queries.';
 
 select *
 from (

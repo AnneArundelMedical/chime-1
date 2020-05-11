@@ -11,21 +11,31 @@ import penn_chime.models
 from sklearn.metrics import mean_squared_error
 import datetime
 import sys, json, re, os, os.path, shutil
-import logging
+import logging, configparser
 import functools, itertools, traceback, hashlib
 
-OUTPUT_DIR = "output"
+OUTPUT_DIR_DEFAULT = "output"
 INPUT_DIR = "input"
 COPY_PATH = "//aamcvepcndw01/D$/".replace("/", os.sep)
+DIRCONFIG_FILENAME = "dirconfig.ini"
 
 ERRORS_FILE = "ERRORS.txt"
 
 USE_DOUBLING_TIME = False
-USE_FUTURE_DIVERGENCE = True
+USE_FUTURE_DIVERGENCE = False
 
+start_time = None
 
 penn_chime.parameters.PRINT_PARAMS = False
 penn_chime.models.logger.setLevel(logging.CRITICAL)
+
+def get_output_dir():
+    try:
+        conf = configparser.ConfigParser()
+        conf.read(DIRCONFIG_FILENAME)
+        return conf["OUTPUT_DIRECTORY"]
+    except:
+        return OUTPUT_DIR_DEFAULT
 
 def percent_range(lo_bound, hi_bound, step):
     return [ r/100.0 for r in range(lo_bound, hi_bound + 1, step) ]
@@ -35,12 +45,12 @@ def get_varying_params(report_date):
     april_1 = datetime.date(2020, 4, 1)
     last_week = report_date - datetime.timedelta(days=7)
     last_week_rates = percent_range(5, 80, 5)
-    interpolated_days_count = 1
+    interpolated_days_count = 2
     interpolated_dates = interpolate_dates(april_1, last_week, interpolated_days_count)
 
     past_stages = (
         [ (april_1, percent_range(10, 40, 10)) ]
-        + list(zip(interpolated_dates, [percent_range(20, 50, 10)] * len(interpolated_dates)))
+        + list(zip(interpolated_dates, [percent_range(25, 55, 10)] * len(interpolated_dates)))
         + [ (last_week, last_week_rates) ]
     )
 
@@ -209,7 +219,7 @@ def output_file_path(main_label, sub_label, chart_name, parameters):
         int_rcr,
         str_mitigation_date,
         ))
-    path = os.path.join(OUTPUT_DIR, filename)
+    path = os.path.join(get_output_dir(), filename)
     return path
 
 # Population from www.census.gov, 2019-07-01 estimate (V2019).
@@ -447,9 +457,10 @@ def data_based_variations(report_date, old_style_inputs):
     param_set = (
         base, REGIONS, *varying_params
     )
+    global start_time
     start_time = datetime.datetime.now()
     print("Beginning fit: %s" % start_time.isoformat())
-    output_file_path = os.path.join(OUTPUT_DIR, "PennModelFit_Combined_%s_%s.csv" % (
+    output_file_path = os.path.join(get_output_dir(), "PennModelFit_Combined_%s_%s.csv" % (
         report_date.isoformat(), now_timestamp()))
     find_best_fitting_params(output_file_path, hosp_census_df, *param_set)
     compl_time = datetime.datetime.now()
@@ -462,10 +473,11 @@ def data_based_variations(report_date, old_style_inputs):
         copy_file(output_file_path, COPY_PATH)
 
 def copy_file(from_path, to_path):
-    with open(to_path, "w") as to_file:
-        with open(from_path, "r") as from_file:
-            for line in from_file.readlines():
-                to_file.write(line)
+    print("COPYING:")
+    print("'%s'" % from_path)
+    print("TO")
+    print("'%s'" % to_path)
+    shutil.copy(from_path, to_path)
 
 def find_best_fitting_params(
     output_file_path,
@@ -506,19 +518,14 @@ def find_best_fitting_params(
         region_results = {}
         for p in generate_param_permutations(*generate_param_arguments):
             params_progress_count += 1
-            progress_message = (
-                "PROGRESS: %d/%d (%f%%)"
-                % (params_progress_count, params_count, round(params_progress_count / params_count, 2)))
-            print(progress_message)
-            with open("PROGRESS.txt", "w") as f:
-                print(progress_message, file=f)
+            record_progress(params_progress_count, params_count)
             try:
                 region_name = p["region_name"]
                 #print("PARAMS PASSED TO MODEL:", p)
                 m, final_p = get_model_from_params(p)
                 predict_df = m.raw_df
                 #print("predict_df\n", predict_df)
-                #predict_df.to_csv(os.path.join(OUTPUT_DIR, "debug-model-census-dump.csv"))
+                #predict_df.to_csv(os.path.join(get_output_dir(), "debug-model-census-dump.csv"))
                 predict_df = predict_df.dropna() # remove rows with NaN values
                 predict_df = predict_df.set_index(PENNMODEL_COLNAME_DATE);
                 #print("predict_df\n", predict_df)
@@ -554,6 +561,24 @@ def find_best_fitting_params(
     print("Closed file:", output_path_display)
     with open("OUTPUT_PATH.txt", "w") as f:
         print(output_path_display, file=f)
+
+def record_progress(params_progress_count, params_count):
+    global start_time
+    curr_time = datetime.datetime.now()
+    elapsed_time_secs = int((curr_time - start_time).total_seconds())
+    percent_done = params_progress_count / params_count
+    total_time_est = int(elapsed_time_secs / percent_done)
+    remaining_time_est = total_time_est - elapsed_time_secs
+    progress_message = (
+        ("PROGRESS: %d/%d (%s%%)"
+        % (params_progress_count, params_count, str(round(percent_done, 2))))
+        +
+        (" (time: %d secs elapsed, est %d/%d remaining)"
+        % (elapsed_time_secs, remaining_time_est, total_time_est))
+    )
+    print(progress_message)
+    with open("PROGRESS.txt", "w") as f:
+        print(progress_message, file=f)
 
 def concat_dataframes(dataframes):
     return functools.reduce(lambda a, b: a.append(b), dataframes)
