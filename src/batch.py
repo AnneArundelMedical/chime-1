@@ -85,7 +85,7 @@ def get_varying_params(report_date):
     dates = [ d for (d, r) in past_stages ]
     if USE_FUTURE_DIVERGENCE:
         dates = dates + [
-            report_date + datetime.timedelta(days=n) for n in [3,6,9]
+            report_date + datetime.timedelta(days=n) for n in [0,3,6,9]
         ]
 
     for (d1, d2) in zip(dates[:-1], dates[1:]):
