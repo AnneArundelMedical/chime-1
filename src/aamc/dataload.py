@@ -2,10 +2,12 @@
 # vim: et ts=8 sts=4 sw=4
 
 import pandas as pd
+import numpy as np
 import datetime
 import sys, json, re, os, os.path, shutil
 import logging, configparser
 import functools, itertools, traceback, hashlib
+import csv
 
 OUTPUT_DIR_DEFAULT = "output"
 INPUT_DIR = "input"
@@ -112,7 +114,8 @@ def output_file_path(main_label, sub_label, chart_name, parameters):
     return path
 
 def parsedate(ds):
-    return datetime.date.fromisoformat(ds)
+    ds = ds.replace(" ", "T")
+    return datetime.datetime.fromisoformat(ds).date()
 
 def load_hospital_census_data(report_date):
     print("load_hospital_census_data")
@@ -164,16 +167,28 @@ def load_qlik_exported_data(report_date):
                          + "' not found in candidate paths: " + str(data_path_candidates))
     sep = QLIK_EXPORT_DATA_SEP
     column_names = [
-                HOSP_DATA_COLNAME_DATE,
-                HOSP_DATA_COLNAME_TESTRESULTCOUNT,
-                HOSP_DATA_COLNAME_CUMULATIVE_COUNT,
-                HOSP_DATA_COLNAME_ICU_COUNT,
-            ],
+        HOSP_DATA_COLNAME_DATE,
+        HOSP_DATA_COLNAME_TESTRESULTCOUNT,
+        HOSP_DATA_COLNAME_CUMULATIVE_COUNT,
+        HOSP_DATA_COLNAME_ICU_COUNT,
+    ]
     print("DATA SOURCE FILE:", data_path)
     with open(data_path) as f:
-        census_df = pd.read_csv(f, sep=sep, names=column_names,
-                                parse_dates=[0], index_col=[0])
+        f.readline()
+        csv_reader = csv.reader(f)
+        csv_rows = [[np.datetime64(parsedate(d)), int(cen), int(icu), int(vent)]
+                    for (d, cen, icu, vent) in csv_reader]
+        print("Column names:", column_names)
+        for row in csv_rows:
+            json.dump(row, sys.stdout, default=lambda x: str(x))
+            print()
+            assert len(row) == len(column_names)
+        census_df = pd.DataFrame(csv_rows, columns=column_names)
     print(census_df)
+    print("Setting index.")
+    census_df = census_df.set_index(HOSP_DATA_COLNAME_DATE).sort_index()
+    print(census_df)
+    print("INDEX:", census_df.index.dtype, type(census_df.index).__name__)
     print(census_df.dtypes)
     pos_cen_today_df = census_df[HOSP_DATA_COLNAME_TESTRESULTCOUNT]
     print(pos_cen_today_df)
@@ -183,6 +198,7 @@ def load_qlik_exported_data(report_date):
     positive_census_today = positive_census_today_series[0]
     print("TODAY'S POSITIVE COUNT:", positive_census_today)
     assert hosp_census_lookback[0] == positive_census_today
+    print("Load complete.")
     return census_df, hosp_census_lookback
 
 def copy_file(from_path, to_path):
