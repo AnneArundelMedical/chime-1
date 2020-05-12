@@ -151,6 +151,50 @@ def load_hospital_census_data(report_date):
     max_pats_df.columns = HOSP_DATA_FILE_COLUMN_NAMES
     print("RENAMED COLUMNS", max_pats_df)
     return max_pats_df, hosp_census_lookback
+    print("DATA SOURCE FILE:", data_path)
+    census_df = pd.read_csv(data_path,
+                            sep=sep,
+                            names=[HOSP_DATA_COLNAME_DATE,
+                                   HOSP_DATA_COLNAME_TESTRESULTCOUNT],
+                            parse_dates=[0],
+                            index_col=[0])
+    print(census_df)
+    print(census_df.dtypes)
+    icu_path, sep = input_file_path_icu(report_date)
+    icu_df = pd.read_csv(icu_path,
+                         sep=sep,
+                         names=[HOSP_DATA_COLNAME_DATE,
+                                HOSP_DATA_COLNAME_ICU_COUNT],
+                         parse_dates=[0],
+                         index_col=[0])
+    print(icu_df)
+    print(icu_df.dtypes)
+    cum_path, sep = input_file_path_cumulative(report_date)
+    cum_df = pd.read_csv(cum_path,
+                         sep=sep,
+                         names=[HOSP_DATA_COLNAME_DATE,
+                                HOSP_DATA_COLNAME_CUMULATIVE_COUNT],
+                         parse_dates=[0],
+                         index_col=[0])
+    print(cum_df)
+    print(cum_df.dtypes)
+    #print("INDEX", census_df.index)
+    #census_df.index.astype("datetime64", copy = False)
+    print("Sizes:", {"census": census_df.size, "icu": icu_df.size, "cum": cum_df.size })
+    assert census_df.size == icu_df.size
+    assert census_df.size == cum_df.size
+    census_df[HOSP_DATA_COLNAME_ICU_COUNT] = icu_df[HOSP_DATA_COLNAME_ICU_COUNT]
+    census_df[HOSP_DATA_COLNAME_CUMULATIVE_COUNT] = cum_df[HOSP_DATA_COLNAME_CUMULATIVE_COUNT]
+    print(census_df)
+    pos_cen_today_df = census_df[HOSP_DATA_COLNAME_TESTRESULTCOUNT]
+    print(pos_cen_today_df)
+    positive_census_today_series = pos_cen_today_df.filter([report_date])
+    hosp_census_lookback = list(reversed(pos_cen_today_df.tolist()))
+    print(positive_census_today_series)
+    positive_census_today = positive_census_today_series[0]
+    print("TODAY'S POSITIVE COUNT:", positive_census_today)
+    assert hosp_census_lookback[0] == positive_census_today
+    return census_df, hosp_census_lookback
 
 def load_qlik_exported_data(report_date):
     print("load_qlik_exported_data")
