@@ -299,6 +299,7 @@ def data_based_variations(report_date, old_style_inputs):
          str(elapsed_time_secs)))
     if os.path.exists(COPY_PATH):
         copy_file(output_file_path, COPY_PATH)
+    print("OUTPUT FILE BASENAME: %s" % os.path.basename(output_file_path))
 
 def find_best_fitting_params(
     output_file_path,
