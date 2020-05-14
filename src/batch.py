@@ -114,7 +114,7 @@ def get_varying_params(report_date):
             in itertools.product(
                 #range(5, 15 + 1, 5),
                 [10],
-                [5] #range(5, 8, 1),
+                [8] #range(5, 8, 1),
             )
         ),
 
@@ -182,7 +182,7 @@ BASE_PARAMS = {
     "recovered": 0,
     #region: Optional[Regions] = None,
     #"relative_contact_rate": .30,
-    "icu_days": 8,
+    "icu_days": 10,
 }
 
 def generate_param_permutations(
