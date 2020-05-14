@@ -134,17 +134,25 @@ def get_varying_params(report_date):
 
 # Population from www.census.gov, 2019-07-01 estimate (V2019).
 # Example link: https://www.census.gov/quickfacts/annearundelcountymaryland
-REGIONS = [
+# The "excluded" regions are predicted separately but not included in totals
+# because they duplicate counts already accounted for in other region rows.
+REGIONS_INCLUDED = [
     { "region_name": "Anne Arundel", "population": 597234, "market_share": .30, },
     { "region_name": "Prince George's", "population": 909327, "market_share": .07, },
     { "region_name": "Queen Anne's", "population": 50381, "market_share": .40, },
     { "region_name": "Talbot", "population": 37181, "market_share": .09, },
 ];
+REGIONS_EXCLUDED = [
+    { "region_name": "DCMC", "population": REGIONS_INCLUDED[1]["population"], "market_share": .23, "exclude_pop_from_total": True },
+]
+REGIONS = REGIONS_INCLUDED + REGIONS_EXCLUDED
 
 def add_region_share():
     all_regions_population = 0
     all_regions_market_share_population = 0
     for r in REGIONS:
+        if r.get("exclude_pop_from_total", False):
+            continue
         market_share_population = r["population"] * r["market_share"]
         all_regions_population = \
             all_regions_population + r["population"]
@@ -412,13 +420,22 @@ def common_params(params_list):
 
 def predict_for_all_regions(region_results, is_first_batch, output_file):
     #print("predict_for_all_regions")
+    region_names_included = [ ri["region_name"] for ri in REGIONS_INCLUDED ]
+    region_names_excluded = [ ri["region_name"] for ri in REGIONS_EXCLUDED ]
     region_results_list = list(region_results.values())
+    #print(region_results_list)
+    region_results_included = (
+        [r for r in region_results_list
+         if r["params"]["region_name"] in region_names_included])
+    region_results_excluded = (
+        [r for r in region_results_list
+         if r["params"]["region_name"] in region_names_excluded])
     first_region_params = region_results_list[0]["params"]
     final_params = region_results_list[0]["final_params"]
     combined_actual_df = concat_dataframes(
-        [ r["matched_actual_census_df"] for r in region_results_list ])
-    combined_predict_df = concat_dataframes(
-        [ r["matched_predict_census_df"] for r in region_results_list ])
+        [ r["matched_actual_census_df"] for r in region_results_included ])
+    combined_predict_included_df = concat_dataframes(
+        [ r["matched_predict_census_df"] for r in region_results_included ])
     combined_model_predict_df_list = \
         [ r["model_predict_df"] for r in region_results_list ]
     params_list = \
@@ -441,7 +458,8 @@ def predict_for_all_regions(region_results, is_first_batch, output_file):
     )
     #print("actual_df", actual_df)
     predict_df = (
-        combined_predict_df
+        combined_predict_included_df
+        #.region_name.isin(region_names_included)
         .resample("D")[[
             PENNMODEL_COLNAME_CENSUS_HOSP,
             PENNMODEL_COLNAME_CENSUS_ICU,
@@ -536,6 +554,8 @@ def write_fit_rows(
             print(datetime.datetime.now().isoformat(), file=errfile)
             traceback.print_exc(file=errfile)
         sys.exit(1) # FIXME: REMOVE THIS LINE!!!!!!!!!!!!!!!!!!
+        # Leaving this stop here for now because it's not getting hit.
+        # Looks like the sporadic errors we had before are fixed now.
         return
     df.to_csv(output_file, header=is_first_batch)
     global ITERS
@@ -544,6 +564,7 @@ def write_fit_rows(
         #raise Exception("STOPPING TO DEBUG")
         pass
     print("ITERATIONS:", ITERS)
+    #if ITERS == 10: sys.exit() # FIXME
     sys.stdout.flush()
 
 def summarize_mitigation_policy(report_date, mitigation_stages):
@@ -599,7 +620,7 @@ def md5(obj, truncate_to_length = 0):
 def now_timestamp():
     ts = datetime.datetime.now().isoformat()
     ts = re.sub(r"[^\d]", "", ts)
-    return ts[:12]
+    return ts[:14]
 
 def get_model_from_params(parameters):
     #print("PARAMETERS PRINT", parameters)
@@ -616,6 +637,8 @@ def get_model_from_params(parameters):
     p["current_hospitalized"] = round(curr_hosp * p["hosp_pop_share"])
     del p["region_name"]
     del p["hosp_pop_share"]
+    if "exclude_pop_from_total" in p:
+        del p["exclude_pop_from_total"]
     icu_rate = round(p["relative_icu_rate"] * p["hospitalized"].rate, 4)
     vent_rate = round(p["relative_vent_rate"] * icu_rate, 4)
     p["icu"] = Disposition(icu_rate, p["icu_days"])
