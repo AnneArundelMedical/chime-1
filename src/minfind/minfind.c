@@ -101,8 +101,10 @@ void minfind(const char* path)
   int h_param_set_id = find_column(cs, cols_count, "param_set_id");
   double mse_min, mse_icu_min, mse_cum_min;
   int mse_min_psi, mse_icu_min_psi, mse_cum_min_psi;
+  int mse_min_line, mse_icu_min_line, mse_cum_min_line;
   mse_min = mse_icu_min = mse_cum_min = 1e10;
   mse_min_psi = mse_icu_min_psi = mse_cum_min_psi = -1;
+  mse_min_line = mse_icu_min_line = mse_cum_min_line = -1;
   int line_number = 2;
   while (readline(csv_file, line, &line_len, cols, &cols_count)) {
     double mse = parse_double(cols[h_mse]);
@@ -111,9 +113,14 @@ void minfind(const char* path)
     if (mse < mse_min) {
       mse_min = mse;
       mse_min_psi = parse_int(cols[h_param_set_id]);
+      mse_min_line = line_number;
     }
     line_number++;
   }
+  printf("minfind complete\n");
+  printf("Minimum MSE: %g\n", mse_min);
+  printf("Minimum MSE line: %d\n", mse_min_line);
+  printf("Minimum MSE param_set_id: %d\n", mse_min_psi);
 }
 
 int main(int argc, char** argv) {
