@@ -122,7 +122,7 @@ def get_varying_params(report_date):
 
         "relative_icu_rate": [
             #pct/100.0 for pct in range(20, 50 + 1, 15)
-            pct/100.0 for pct in [40]
+            pct/100.0 for pct in [23]
         ],
 
         "relative_vent_rate": [
