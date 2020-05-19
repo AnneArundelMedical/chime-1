@@ -17,7 +17,7 @@ import functools, itertools, traceback, hashlib
 
 USE_DOUBLING_TIME = False
 USE_FUTURE_DIVERGENCE = True
-INTERPOLATED_DATES_COUNT = 3
+INTERPOLATED_DATES_COUNT = 0
 MITIGATION_DATE_LISTING_COUNT = 3
 
 start_time = None
@@ -32,8 +32,10 @@ def get_varying_params(report_date):
 
     fixed_dates = [
         (datetime.date(2020, 4, 1), [.2]),
-        #(datetime.date(2020, 4, 11), [.25]),
-        #(datetime.date(2020, 4, 21), [.45]),
+        (datetime.date(2020, 4, 10), [.45]),
+        (datetime.date(2020, 4, 20), [.40]),
+        (datetime.date(2020, 4, 30), [.50]),
+        #(datetime.date(2020, 5, 10), [.60]),
     ]
     last_week = report_date - datetime.timedelta(days=7)
     last_week_rates = percent_range(55-3*3, 55+3*3, 3)
