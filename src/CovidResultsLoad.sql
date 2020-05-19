@@ -104,7 +104,7 @@ with (data_compression = page);
 print 'Index created.';
 
 bulk insert CovidPennModel
-from 'D:\PennModelFit_Combined_2020-05-10_202005111429.csv'
+from 'D:\PennModelFit_Combined_2020-05-17_20200518105629.csv'
 with (tablock, firstrow=2, fieldterminator=',', rowterminator='\r\n')
 ;
 
