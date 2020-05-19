@@ -17,7 +17,7 @@ import functools, itertools, traceback, hashlib
 
 USE_DOUBLING_TIME = False
 USE_FUTURE_DIVERGENCE = True
-INTERPOLATED_DATES_COUNT = 0
+INTERPOLATED_DATES_COUNT = 3
 MITIGATION_DATE_LISTING_COUNT = 3
 
 start_time = None
@@ -32,8 +32,8 @@ def get_varying_params(report_date):
 
     fixed_dates = [
         (datetime.date(2020, 4, 1), [.2]),
-        (datetime.date(2020, 4, 11), [.25]),
-        (datetime.date(2020, 4, 21), [.45]),
+        #(datetime.date(2020, 4, 11), [.25]),
+        #(datetime.date(2020, 4, 21), [.45]),
     ]
     last_week = report_date - datetime.timedelta(days=7)
     last_week_rates = percent_range(55-3*3, 55+3*3, 3)
@@ -44,7 +44,7 @@ def get_varying_params(report_date):
 
     past_stages = (
         fixed_dates
-        + list(zip(interpolated_dates, [percent_range(25, 55, 10)] * len(interpolated_dates)))
+        + list(zip(interpolated_dates, [percent_range(25, 55, 5)] * len(interpolated_dates)))
         + [ (last_week, last_week_rates) ]
     )
 
@@ -393,7 +393,7 @@ def record_progress(params_progress_count, params_count):
     remaining_time_est = total_time_est - elapsed_time_secs
     progress_message = (
         ("PROGRESS: %d/%d (%s%%)"
-        % (params_progress_count, params_count, str(round(percent_done, 2))))
+        % (params_progress_count, params_count, str(round(100 * percent_done, 2))))
         +
         (" (time: %d secs elapsed, est %d/%d remaining)"
         % (elapsed_time_secs, remaining_time_est, total_time_est))
