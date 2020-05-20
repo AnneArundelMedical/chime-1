@@ -18,6 +18,3 @@ def test_interpolate_dates():
         dates = interpolate_dates(s, e, n)
         assert(len(dates) == n)
 
-if __name__ == "__main__":
-    pass
-
