@@ -198,7 +198,7 @@ def load_hospital_census_data(report_date):
 
 def load_qlik_exported_data(report_date):
     print("load_qlik_exported_data")
-    print("REPORT DATE:", report_date)
+    print("REPORT DATE:", report_date if report_date else "(default)")
     data_path = None
     data_path_candidates = [ QLIK_EXPORT_DATA_PATH, INPUT_DIR ]
     for p in data_path_candidates:
@@ -236,14 +236,18 @@ def load_qlik_exported_data(report_date):
     print(census_df.dtypes)
     pos_cen_today_df = census_df[HOSP_DATA_COLNAME_TESTRESULTCOUNT]
     print(pos_cen_today_df)
+    if report_date:
+        report_date = census_df.index.max().date()
     positive_census_today_series = pos_cen_today_df.filter([report_date])
+    if positive_census_today_series.size == 0:
+        raise Exception("Report date not in census data: %s" % report_date.isoformat())
     hosp_census_lookback = list(reversed(pos_cen_today_df.tolist()))
     print(positive_census_today_series)
     positive_census_today = positive_census_today_series[0]
     print("TODAY'S POSITIVE COUNT:", positive_census_today)
     assert hosp_census_lookback[0] == positive_census_today
     print("Load complete.")
-    return census_df, hosp_census_lookback
+    return census_df, hosp_census_lookback, report_date
 
 def copy_file(from_path, to_path):
     print("COPYING:")
