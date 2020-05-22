@@ -105,36 +105,7 @@ def find_best_fitting_params(
             params_progress_count += 1
             record_progress(params_progress_count, params_count)
             try:
-                region_name = p["region_name"]
-                #print("PARAMS PASSED TO MODEL:", p)
-                m, final_p = get_model_from_params(p)
-                predict_df = m.raw_df
-                #print("predict_df\n", predict_df)
-                #predict_df.to_csv(os.path.join(get_output_dir(), "debug-model-census-dump.csv"))
-                predict_df = predict_df.dropna() # remove rows with NaN values
-                predict_df = predict_df.set_index(PENNMODEL_COLNAME_DATE);
-                #print("predict_df\n", predict_df)
-                #print("predict_df.dtypes\n", predict_df.dtypes)
-                dates_intersection = predict_df.index.intersection(hosp_dates)
-                matched_pred_census_df = predict_df.loc[dates_intersection]
-                #print("matched_pred_census_df\n", matched_pred_census_df)
-                matched_hosp_census_df = hosp_census_df.loc[dates_intersection]
-                #print("matched_hosp_census_df\n", matched_hosp_census_df)
-                #print("mse")
-                #print(matched_hosp_census_df[HOSP_DATA_COLNAME_TOTAL_PATS])
-                #print(matched_pred_census_df[PENNMODEL_COLNAME_HOSPITALIZED])
-                if region_name in region_results:
-                    #print("CURRENT POP:", final_p["current_hospitalized"])
-                    predict_for_all_regions(region_results, is_first_batch, output_file)
-                    is_first_batch = False
-                    region_results = {}
-                region_results[region_name] = {
-                    "model_predict_df": m.raw_df,
-                    "matched_actual_census_df": matched_hosp_census_df,
-                    "matched_predict_census_df": matched_pred_census_df,
-                    "params": p,
-                    "final_params": final_p,
-                }
+                predict_one_region(p, region_results, hosp_dates, hosp_census_df)
             except Exception as e:
                 print("ERROR:")
                 traceback.print_exc()
@@ -146,6 +117,35 @@ def find_best_fitting_params(
     print("Closed file:", output_path_display)
     with open("OUTPUT_PATH.txt", "w") as f:
         print(output_path_display, file=f)
+
+def predict_one_region(p, region_results, hosp_dates, hosp_census_df):
+    region_derived_from = p.get("region_derived_from")
+    if region_derived_from:
+        dr = region_results[region_derived_from]
+        p["p"] = p[]
+    # The prediction happens here.
+    m, final_p = get_model_from_params(p, region_results)
+    # DataFrame raw_df holds the results of the model's prediction.
+    predict_df = m.raw_df
+    predict_df = predict_df.dropna() # remove rows with NaN values
+    predict_df = predict_df.set_index(PENNMODEL_COLNAME_DATE);
+    dates_intersection = predict_df.index.intersection(hosp_dates)
+    matched_pred_census_df = predict_df.loc[dates_intersection]
+    matched_hosp_census_df = hosp_census_df.loc[dates_intersection]
+    # When we see the same region a second time, we know that we've seen an
+    # entire cycle and we can record the results and start the next cycle.
+    region_name = p["region_name"]
+    if region_name in region_results:
+        predict_for_all_regions(region_results, is_first_batch, output_file)
+        is_first_batch = False
+        region_results.clear()
+        region_results[region_name] = {
+            "model_predict_df": m.raw_df,
+            "matched_actual_census_df": matched_hosp_census_df,
+            "matched_predict_census_df": matched_pred_census_df,
+            "params": p,
+            "final_params": final_p,
+        }
 
 def record_progress(params_progress_count, params_count):
     global start_time
@@ -164,9 +164,6 @@ def record_progress(params_progress_count, params_count):
     print(progress_message)
     with open("PROGRESS.txt", "w") as f:
         print(progress_message, file=f)
-
-def concat_dataframes(dataframes):
-    return functools.reduce(lambda a, b: a.append(b), dataframes)
 
 def common_params(params_list):
     common = {}
@@ -211,6 +208,19 @@ def predict_for_all_regions(region_results, is_first_batch, output_file):
     group_param_set_id = min(
         [ r["params"]["param_set_id"] for r in region_results_list ])
     combined_model_predict_df["group_param_set_id"] = group_param_set_id
+    actual_df, predict_df, mse, mse_icu, mse_cum = \
+        compute_error(combined_actual_df, combined_predict_included_df)
+    print("MSE = %s, ICU MSE = %s, CUM MSE = %s" % (str(mse), str(mse_icu), str(mse_cum)))
+    display_fit_estimates(actual_df, predict_df)
+    write_fit_rows(
+        common_params(params_list),
+        final_params,
+        combined_model_predict_df,
+        mse, mse_icu, mse_cum,
+        is_first_batch,
+        output_file)
+
+def compute_error(combined_actual_df, combined_predict_included_df):
     actual_df = (
         combined_actual_df
         .resample("D")[[
@@ -240,7 +250,9 @@ def predict_for_all_regions(region_results, is_first_batch, output_file):
             (HOSP_DATA_COLNAME_CUMULATIVE_COUNT, PENNMODEL_COLNAME_EVER_HOSP),
         ]
     ]
-    print("MSE = %s, ICU MSE = %s, CUM MSE = %s" % (str(mse), str(mse_icu), str(mse_cum)))
+    return actual_df, predict_df, mse, mse_icu, mse_cum
+
+def display_fit_estimates(actual_df, predict_df):
     data_len = len(actual_df.index)
     midpoint_index = int(data_len / 2);
     indices = sorted(set([
@@ -274,15 +286,6 @@ def predict_for_all_regions(region_results, is_first_batch, output_file):
         for x in indices ]
     mse_endpoints = mean_squared_error(actual_endpoints, predict_endpoints)
     print(actual_endpoints, predict_endpoints, mse_endpoints)
-    write_fit_rows(
-        common_params(params_list),
-        final_params,
-        combined_model_predict_df,
-        mse, mse_icu, mse_cum,
-        is_first_batch,
-        output_file)
-
-ITERS = 0
 
 def write_fit_rows(
     p, final_p, predict_df,
@@ -322,6 +325,11 @@ def write_fit_rows(
         # Looks like the sporadic errors we had before are fixed now.
         return
     df.to_csv(output_file, header=is_first_batch)
+    increment_iters()
+
+ITERS = 0
+
+def increment_iters():
     global ITERS
     ITERS = ITERS + 1
     if ITERS == 1:
@@ -369,47 +377,8 @@ def mitigation_policy_tostring(mitigation_policy):
     s = [ "%s:%f" % (d.isoformat(), r) for (d, r) in mitigation_policy ]
     return ";".join(s)
 
-def md5(obj, truncate_to_length = 0):
-    s = str(obj)
-    b = s.encode()
-    md5er = hashlib.md5()
-    md5er.update(b)
-    digest = md5er.digest()
-    if truncate_to_length > 0:
-        truncated = digest[:truncate_to_length]
-    else:
-        truncated = digest
-    return int.from_bytes(truncated, byteorder="big")
-
-def now_timestamp():
-    ts = datetime.datetime.now().isoformat()
-    ts = re.sub(r"[^\d]", "", ts)
-    return ts[:14]
-
 def get_model_from_params(parameters):
-    #print("PARAMETERS PRINT", parameters)
-    p = { **parameters }
-    del p["param_set_id"]
-    days_back = p["end_date_days_back"]
-    del p["end_date_days_back"]
-    p["current_date"] = \
-        p["current_date"] - datetime.timedelta(days=days_back)
-    p["region"] = Regions(**{ p["region_name"]: p["population"] })
-    #print(p["hosp_census_lookback"])
-    curr_hosp = p["hosp_census_lookback"][days_back]
-    del p["hosp_census_lookback"]
-    p["current_hospitalized"] = round(curr_hosp * p["hosp_pop_share"])
-    del p["region_name"]
-    del p["hosp_pop_share"]
-    if "exclude_pop_from_total" in p:
-        del p["exclude_pop_from_total"]
-    icu_rate = round(p["relative_icu_rate"] * p["hospitalized"].rate, 4)
-    vent_rate = round(p["relative_vent_rate"] * icu_rate, 4)
-    p["icu"] = Disposition(icu_rate, p["icu_days"])
-    p["ventilated"] = Disposition(vent_rate, p["icu_days"])
-    del p["relative_icu_rate"]
-    del p["relative_vent_rate"]
-    del p["icu_days"]
+    p = get_model_params(parameters)
     print(p)
     params_obj = Parameters(**p)
     m = penn_chime.models.SimSirModel(params_obj)
