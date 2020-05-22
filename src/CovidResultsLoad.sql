@@ -66,6 +66,7 @@ create table CovidPennModel (
   ventilated_rate real not null,
   ventilated_days int not null,
   current_hospitalized int not null,
+  future_divergence_set_id int not null,
 
   primary key (run_date, [day], region_name, param_set_id)
 
