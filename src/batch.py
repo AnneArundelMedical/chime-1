@@ -145,6 +145,7 @@ def predict_one_region(p, region_results, hosp_dates, hosp_census_df):
             "matched_predict_census_df": matched_pred_census_df,
             "params": p,
             "final_params": final_p,
+            "is_derived": bool(p.get("region_derived_from"))
         }
 
 def record_progress(params_progress_count, params_count):
@@ -181,22 +182,14 @@ def common_params(params_list):
 
 def predict_for_all_regions(region_results, is_first_batch, output_file):
     #print("predict_for_all_regions")
-    region_names_included = [ ri["region_name"] for ri in REGIONS_INCLUDED ]
-    region_names_excluded = [ ri["region_name"] for ri in REGIONS_EXCLUDED ]
     region_results_list = list(region_results.values())
-    #print(region_results_list)
-    region_results_included = (
-        [r for r in region_results_list
-         if r["params"]["region_name"] in region_names_included])
-    region_results_excluded = (
-        [r for r in region_results_list
-         if r["params"]["region_name"] in region_names_excluded])
-    first_region_params = region_results_list[0]["params"]
-    final_params = region_results_list[0]["final_params"]
-    combined_actual_df = concat_dataframes(
-        [ r["matched_actual_census_df"] for r in region_results_included ])
-    combined_predict_included_df = concat_dataframes(
-        [ r["matched_predict_census_df"] for r in region_results_included ])
+    add_actual_share_census(region_results_list)
+    region_results_nonderived = [
+        r for r in region_results_list
+        if r["is_derived"] == False 
+    ]
+    actual_df, predict_df, mse, mse_icu, mse_cum = \
+        compute_error(region_results_nonderived)
     combined_model_predict_df_list = \
         [ r["model_predict_df"] for r in region_results_list ]
     params_list = \
@@ -208,10 +201,10 @@ def predict_for_all_regions(region_results, is_first_batch, output_file):
     group_param_set_id = min(
         [ r["params"]["param_set_id"] for r in region_results_list ])
     combined_model_predict_df["group_param_set_id"] = group_param_set_id
-    actual_df, predict_df, mse, mse_icu, mse_cum = \
-        compute_error(combined_actual_df, combined_predict_included_df)
     print("MSE = %s, ICU MSE = %s, CUM MSE = %s" % (str(mse), str(mse_icu), str(mse_cum)))
-    display_fit_estimates(actual_df, predict_df)
+    first_region_params = region_results_list[0]["params"]
+    final_params = region_results_list[0]["final_params"]
+    display_fit_estimates(actual_df, predict_df, first_region_params)
     write_fit_rows(
         common_params(params_list),
         final_params,
@@ -220,7 +213,25 @@ def predict_for_all_regions(region_results, is_first_batch, output_file):
         is_first_batch,
         output_file)
 
-def compute_error(combined_actual_df, combined_predict_included_df):
+def add_actual_share_census(region_results_list):
+    for rr in region_results_list:
+        if not rr["is_derived"]:
+            actual_df = rr["matched_actual_census_df"]
+            actual_df = rr["params"]["region_patient_share"] * actual_df
+            rr["actual_share_census_df"] = actual_df
+        else:
+            derived_from = rr["params"]["region_derived_from"]
+            base_region_results = region_results[derived_from]
+            derived_scale = rr["params"]["region_derived_scale"]
+            base_region_actual_df = base_region_results["actual_share_census_df"]
+            derived_actual_df = derived_scale * base_region_actual_df
+            rr["actual_share_census_df"] = derived_actual_df
+
+def compute_error(region_results_nonderived):
+    combined_actual_df = concat_dataframes(
+        [r["matched_actual_census_df"] for r in region_results_nonderived ])
+    combined_predict_included_df = concat_dataframes(
+        [r["matched_predict_census_df"] for r in region_results_nonderived ])
     actual_df = (
         combined_actual_df
         .resample("D")[[
@@ -252,7 +263,7 @@ def compute_error(combined_actual_df, combined_predict_included_df):
     ]
     return actual_df, predict_df, mse, mse_icu, mse_cum
 
-def display_fit_estimates(actual_df, predict_df):
+def display_fit_estimates(actual_df, predict_df, first_region_params):
     data_len = len(actual_df.index)
     midpoint_index = int(data_len / 2);
     indices = sorted(set([
