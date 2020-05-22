@@ -321,6 +321,7 @@ def get_model_params(parameters, region_results):
     del p["relative_icu_rate"]
     del p["relative_vent_rate"]
     del p["icu_days"]
+    del p["future_divergence_set_id"]
     return p
 
 def _derived_region_setup(p, derived_from, region_results):

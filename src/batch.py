@@ -108,6 +108,7 @@ def find_best_fitting_params(
             params_progress_count += 1
             record_progress(params_progress_count, params_count)
             try:
+                p["future_divergence_set_id"] = future_divergence_set_id
                 current_region_results = predict_one_region(
                     p, region_results, hosp_dates, hosp_census_df,
                     future_divergence_set_id)
@@ -339,6 +340,7 @@ def write_fit_rows(
         df["ventilated_rate"] = final_p["ventilated"].rate
         df["ventilated_days"] = final_p["ventilated"].days
         df["current_hospitalized"] = final_p["current_hospitalized"]
+        df["future_divergence_set_id"] = p["future_divergence_set_id"]
     except KeyError as e:
         print("EXCEPTION IN WRITE:", e, file=sys.stderr)
         with open(ERRORS_FILE, "a") as errfile:
