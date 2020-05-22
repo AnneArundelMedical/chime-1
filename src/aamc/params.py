@@ -17,14 +17,14 @@ def get_varying_params(report_date, interpolated_days_count: int, use_future_div
 
     fixed_dates = [
         (datetime.date(2020, 4, 1), [.2]),
-        (datetime.date(2020, 4, 10), [.35]),
-        (datetime.date(2020, 4, 20), [.40]),
-        (datetime.date(2020, 4, 30), [.45]),
-        (datetime.date(2020, 5, 7), _percent_range(50, 50, 5)),
-        #(datetime.date(2020, 4, 10), [.35, .40]),
-        #(datetime.date(2020, 4, 20), [.40, .45, .50]),
-        #(datetime.date(2020, 4, 30), [.40, .45, .50]),
-        #(datetime.date(2020, 5, 7), _percent_range(40, 60, 5)),
+        #datetime.date(2020, 4, 10), [.35]),
+        #datetime.date(2020, 4, 20), [.40]),
+        #datetime.date(2020, 4, 30), [.45]),
+        #datetime.date(2020, 5, 7), _percent_range(50, 50, 5)),
+        (datetime.date(2020, 4, 10), [.35, .40]),
+        (datetime.date(2020, 4, 20), [.40, .45, .50]),
+        (datetime.date(2020, 4, 30), [.40, .45, .50]),
+        (datetime.date(2020, 5, 7), _percent_range(40, 60, 5)),
         #(datetime.date(2020, 5, 10), [.60]),
     ]
     last_week = report_date - datetime.timedelta(days=7)
