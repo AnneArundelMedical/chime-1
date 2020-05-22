@@ -37,6 +37,7 @@ HOSP_DATA_COLNAME_DATE = "CensusDate"
 HOSP_DATA_COLNAME_TESTRESULT = "OrderStatus"
 HOSP_DATA_COLNAME_TESTRESULTCOUNT = "OrderStatusCount"
 HOSP_DATA_COLNAME_ICU_COUNT = "IcuCount"
+HOSP_DATA_COLNAME_COUNTY = "County"
 HOSP_DATA_COLNAME_CUMULATIVE_COUNT = "CumCount"
 
 HOSP_DATA_FILE_COLUMN_NAMES = [
@@ -215,13 +216,19 @@ def load_qlik_exported_data(report_date):
         HOSP_DATA_COLNAME_TESTRESULTCOUNT,
         HOSP_DATA_COLNAME_CUMULATIVE_COUNT,
         HOSP_DATA_COLNAME_ICU_COUNT,
+        #HOSP_DATA_COLNAME_COUNTY,
     ]
     print("DATA SOURCE FILE:", data_path)
     with open(data_path) as f:
         f.readline()
         csv_reader = csv.reader(f)
-        csv_rows = [[np.datetime64(parsedate(d)), int(cen), int(icu), int(vent)]
-                    for (d, cen, icu, vent) in csv_reader]
+        csv_rows = [[np.datetime64(parsedate(d)),
+                     int(cen),
+                     int(icu),
+                     int(vent),
+                     #county,
+                    ]
+                    for (d, cen, icu, vent, county) in csv_reader]
         print("Column names:", column_names)
         for row in csv_rows:
             json.dump(row, sys.stdout, default=lambda x: str(x))
@@ -230,7 +237,9 @@ def load_qlik_exported_data(report_date):
         census_df = pd.DataFrame(csv_rows, columns=column_names)
     print(census_df)
     print("Setting index.")
-    census_df = census_df.set_index(HOSP_DATA_COLNAME_DATE).sort_index()
+    census_df = census_df.groupby(["CensusDate"]).sum() # add counties
+    #census_df = census_df.set_index(HOSP_DATA_COLNAME_DATE)
+    census_df = census_df.sort_index()
     print(census_df)
     print("INDEX:", census_df.index.dtype, type(census_df.index).__name__)
     print(census_df.dtypes)
