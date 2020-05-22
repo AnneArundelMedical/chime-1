@@ -10,18 +10,24 @@ import datetime
 import sys, json, re, os, os.path
 import functools, itertools, traceback, hashlib
 
+_future_divergence_set_size = 1
+
+def get_future_divergence_set_size():
+    global _future_divergence_set_size
+    return _future_divergence_set_size
+
 def _percent_range(lo_bound, hi_bound, step):
     return [ r/100.0 for r in range(lo_bound, hi_bound + 1, step) ]
 
 def get_varying_params(report_date, interpolated_days_count: int, use_future_divergence: bool):
 
     fixed_dates = [
-        (datetime.date(2020, 4, 1), [.2]),
+        (datetime.date(2020, 4, 1), _percent_range(10,20,5)),
         #datetime.date(2020, 4, 10), [.35]),
         #datetime.date(2020, 4, 20), [.40]),
         #datetime.date(2020, 4, 30), [.45]),
         #datetime.date(2020, 5, 7), _percent_range(50, 50, 5)),
-        (datetime.date(2020, 4, 10), [.35, .40]),
+        (datetime.date(2020, 4, 10), [.20, .25, .30, .35, .40]),
         (datetime.date(2020, 4, 20), [.40, .45, .50]),
         (datetime.date(2020, 4, 30), [.40, .45, .50]),
         (datetime.date(2020, 5, 7), _percent_range(40, 60, 5)),
@@ -39,19 +45,27 @@ def get_varying_params(report_date, interpolated_days_count: int, use_future_div
         + [ (last_week, last_week_rates) ]
     )
 
+    delta = 0.10
+    inc = 1.0 + delta
+    dec = 1.0 - delta
+    future_divergence_transforms = [
+        lambda last_week_rate: (.20, ),
+        lambda last_week_rate: (last_week_rate, ),
+        lambda last_week_rate: (
+            last_week_rate * inc, last_week_rate * inc**2, last_week_rate * inc**3),
+        lambda last_week_rate: (
+            last_week_rate * dec, last_week_rate * dec**2, last_week_rate * dec**3),
+    ]
+
+    global _future_divergence_set_size
+    _future_divergence_set_size *= len(future_divergence_transforms)
+
     future_stages = {}
-    delta = 0.05
     for last_week_rate in last_week_rates:
         fs = []
-        inc = 1.0 + delta
-        dec = 1.0 - delta
         fs.append((last_week_rate, ))
-        fs.append((0, ))
-        #fs.append((last_week_rate * inc, last_week_rate * inc**2, last_week_rate * inc**2))
-        fs.append((last_week_rate * inc, last_week_rate * inc**2, last_week_rate * inc**3))
-        #fs.append((last_week_rate * dec, last_week_rate * dec, last_week_rate * dec))
-        #fs.append((last_week_rate * dec, last_week_rate * dec**2, last_week_rate * dec**2))
-        fs.append((last_week_rate * dec, last_week_rate * dec**2, last_week_rate * dec**3))
+        for fdt in future_divergence_transforms:
+            fs.append(fdt(last_week_rate))
         fs = [ tuple( round(r, 4) for r in rs ) for rs in fs ]
         future_stages[last_week_rate] = fs
 
@@ -172,6 +186,8 @@ def get_regions():
         market_share_population = r["population"] * r["market_share"]
         r["hosp_pop_share"] = \
             market_share_population / all_regions_market_share_population
+    global _future_divergence_set_size
+    _future_divergence_set_size *= len(regions)
     return regions
 
 BASE_PARAMS = {

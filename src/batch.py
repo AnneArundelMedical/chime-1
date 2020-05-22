@@ -21,7 +21,6 @@ INTERPOLATED_DATES_COUNT = 0
 MITIGATION_DATE_LISTING_COUNT = 3
 
 start_time = None
-global_is_first_batch = False
 
 penn_chime.parameters.PRINT_PARAMS = False
 penn_chime.models.logger.setLevel(logging.CRITICAL)
@@ -102,12 +101,16 @@ def find_best_fitting_params(
     params_progress_count = 0
     with open(output_file_path, "w") as output_file:
         region_results = {}
+        future_divergence_set_counter = 0
+        future_divergence_set_size = get_future_divergence_set_size()
+        future_divergence_set_id = 0
         for p in generate_param_permutations(USE_DOUBLING_TIME, *generate_param_arguments):
             params_progress_count += 1
             record_progress(params_progress_count, params_count)
             try:
-                current_region_results = \
-                    predict_one_region(p, region_results, hosp_dates, hosp_census_df)
+                current_region_results = predict_one_region(
+                    p, region_results, hosp_dates, hosp_census_df,
+                    future_divergence_set_id)
                 # When we see the same region a second time, we know that we've seen an
                 # entire cycle and we can record the results and start the next cycle.
                 region_name = p["region_name"]
@@ -119,6 +122,10 @@ def find_best_fitting_params(
                     print("CLEAR REGION RESULTS")
                 region_results[region_name] = current_region_results
                 print("Added region results:", region_name)
+                future_divergence_set_counter += 1
+                if future_divergence_set_counter == future_divergence_set_size:
+                    future_divergence_set_counter = 0
+                    future_divergence_set_id += 1
             except Exception as e:
                 print("ERROR:")
                 traceback.print_exc()
@@ -131,7 +138,8 @@ def find_best_fitting_params(
     with open("OUTPUT_PATH.txt", "w") as f:
         print(output_path_display, file=f)
 
-def predict_one_region(p, region_results, hosp_dates, hosp_census_df):
+def predict_one_region(p, region_results, hosp_dates, hosp_census_df,
+                       future_divergence_set_id):
     # The prediction happens here.
     m, final_p = get_model_from_params(p, region_results)
     # DataFrame raw_df holds the results of the model's prediction.
