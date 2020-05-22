@@ -97,8 +97,7 @@ def find_best_fitting_params(
         print("PARAMETER COUNT:", params_count, file=f)
     #print("EXIT EARLY")
     #sys.exit(0)
-    global global_is_first_batch
-    global_is_first_batch = True
+    is_first_batch = True
     print("Writing to file:", output_file_path)
     params_progress_count = 0
     with open(output_file_path, "w") as output_file:
@@ -107,7 +106,19 @@ def find_best_fitting_params(
             params_progress_count += 1
             record_progress(params_progress_count, params_count)
             try:
-                predict_one_region(p, region_results, hosp_dates, hosp_census_df)
+                current_region_results = \
+                    predict_one_region(p, region_results, hosp_dates, hosp_census_df)
+                # When we see the same region a second time, we know that we've seen an
+                # entire cycle and we can record the results and start the next cycle.
+                region_name = p["region_name"]
+                if region_name in region_results:
+                    predict_for_all_regions(
+                        region_results, is_first_batch, output_file)
+                    is_first_batch = False
+                    region_results.clear()
+                    print("CLEAR REGION RESULTS")
+                region_results[region_name] = current_region_results
+                print("Added region results:", region_name)
             except Exception as e:
                 print("ERROR:")
                 traceback.print_exc()
@@ -130,16 +141,7 @@ def predict_one_region(p, region_results, hosp_dates, hosp_census_df):
     dates_intersection = predict_df.index.intersection(hosp_dates)
     matched_pred_census_df = predict_df.loc[dates_intersection]
     matched_hosp_census_df = hosp_census_df.loc[dates_intersection]
-    # When we see the same region a second time, we know that we've seen an
-    # entire cycle and we can record the results and start the next cycle.
-    region_name = p["region_name"]
-    if region_name in region_results:
-        global global_is_first_batch
-        predict_for_all_regions(region_results, global_is_first_batch, output_file)
-        global_is_first_batch = False
-        region_results.clear()
-        print("CLEAR REGION RESULTS")
-    region_results[region_name] = {
+    current_region_results = {
         "model_predict_df": m.raw_df,
         "matched_actual_census_df": matched_hosp_census_df,
         "matched_predict_census_df": matched_pred_census_df,
@@ -147,7 +149,7 @@ def predict_one_region(p, region_results, hosp_dates, hosp_census_df):
         "final_params": final_p,
         "is_derived": bool(p.get("region_derived_from"))
     }
-    print("Added region results:", region_name)
+    return current_region_results
 
 def record_progress(params_progress_count, params_count):
     global start_time
@@ -184,7 +186,7 @@ def common_params(params_list):
 def predict_for_all_regions(region_results, is_first_batch, output_file):
     #print("predict_for_all_regions")
     region_results_list = list(region_results.values())
-    add_actual_share_census(region_results_list)
+    add_actual_share_census(region_results)
     region_results_nonderived = [
         r for r in region_results_list
         if r["is_derived"] == False 
@@ -192,23 +194,21 @@ def predict_for_all_regions(region_results, is_first_batch, output_file):
     actual_df, predict_df, mse, mse_icu, mse_cum = \
         compute_error(region_results_nonderived)
     print("MSE = %s, ICU MSE = %s, CUM MSE = %s" % (str(mse), str(mse_icu), str(mse_cum)))
-    combined_model_predict_df = combine_model_predictions(region_results_list)
-    first_region_params = region_results_list[0]["params"]
-    final_params = region_results_list[0]["final_params"]
-    display_fit_estimates(actual_df, predict_df, first_region_params)
+    params_list = [ r["params"] for r in region_results_list ]
+    combined_model_predict_df = combine_model_predictions(region_results_list, params_list)
+    first_region = region_results_list[0]
+    display_fit_estimates(actual_df, predict_df, first_region["params"])
     write_fit_rows(
         common_params(params_list),
-        final_params,
+        first_region["final_params"],
         combined_model_predict_df,
         mse, mse_icu, mse_cum,
         is_first_batch,
         output_file)
 
-def combine_model_predictions(region_results_list):
+def combine_model_predictions(region_results_list, params_list):
     combined_model_predict_df_list = \
         [ r["model_predict_df"] for r in region_results_list ]
-    params_list = \
-        [ r["params"] for r in region_results_list ]
     for i in range(len(region_results_list)):
         for prop_name in ["param_set_id", "region_name", "population", "market_share"]:
             combined_model_predict_df_list[i][prop_name] = params_list[i][prop_name]
@@ -218,8 +218,8 @@ def combine_model_predictions(region_results_list):
     combined_model_predict_df["group_param_set_id"] = group_param_set_id
     return combined_model_predict_df
 
-def add_actual_share_census(region_results_list):
-    for rr in region_results_list:
+def add_actual_share_census(region_results):
+    for rr in region_results.values():
         if not rr["is_derived"]:
             actual_df = rr["matched_actual_census_df"]
             actual_df = rr["params"]["region_patient_share"] * actual_df
