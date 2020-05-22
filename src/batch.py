@@ -46,7 +46,7 @@ def data_based_variations(report_date, old_style_inputs):
         ]
     ]
     param_set = (
-        base, REGIONS, *varying_params
+        base, get_regions(), *varying_params
     )
     global start_time
     start_time = datetime.datetime.now()
@@ -119,10 +119,6 @@ def find_best_fitting_params(
         print(output_path_display, file=f)
 
 def predict_one_region(p, region_results, hosp_dates, hosp_census_df):
-    region_derived_from = p.get("region_derived_from")
-    if region_derived_from:
-        dr = region_results[region_derived_from]
-        p["p"] = p[]
     # The prediction happens here.
     m, final_p = get_model_from_params(p, region_results)
     # DataFrame raw_df holds the results of the model's prediction.
@@ -190,6 +186,20 @@ def predict_for_all_regions(region_results, is_first_batch, output_file):
     ]
     actual_df, predict_df, mse, mse_icu, mse_cum = \
         compute_error(region_results_nonderived)
+    print("MSE = %s, ICU MSE = %s, CUM MSE = %s" % (str(mse), str(mse_icu), str(mse_cum)))
+    combined_model_predict_df = combine_model_predictions(region_results_list)
+    first_region_params = region_results_list[0]["params"]
+    final_params = region_results_list[0]["final_params"]
+    display_fit_estimates(actual_df, predict_df, first_region_params)
+    write_fit_rows(
+        common_params(params_list),
+        final_params,
+        combined_model_predict_df,
+        mse, mse_icu, mse_cum,
+        is_first_batch,
+        output_file)
+
+def combine_model_predictions(region_results_list):
     combined_model_predict_df_list = \
         [ r["model_predict_df"] for r in region_results_list ]
     params_list = \
@@ -201,17 +211,7 @@ def predict_for_all_regions(region_results, is_first_batch, output_file):
     group_param_set_id = min(
         [ r["params"]["param_set_id"] for r in region_results_list ])
     combined_model_predict_df["group_param_set_id"] = group_param_set_id
-    print("MSE = %s, ICU MSE = %s, CUM MSE = %s" % (str(mse), str(mse_icu), str(mse_cum)))
-    first_region_params = region_results_list[0]["params"]
-    final_params = region_results_list[0]["final_params"]
-    display_fit_estimates(actual_df, predict_df, first_region_params)
-    write_fit_rows(
-        common_params(params_list),
-        final_params,
-        combined_model_predict_df,
-        mse, mse_icu, mse_cum,
-        is_first_batch,
-        output_file)
+    return combined_model_predict_df
 
 def add_actual_share_census(region_results_list):
     for rr in region_results_list:
