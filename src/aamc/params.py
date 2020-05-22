@@ -148,7 +148,7 @@ def get_regions():
     all_regions_population = 0
     all_regions_market_share_population = 0
     regions = list(_BASE_REGIONS)
-    for r in base_regions:
+    for r in regions:
         market_share_population = r["population"] * r["market_share"]
         all_regions_population = \
             all_regions_population + r["population"]
@@ -161,8 +161,8 @@ def get_regions():
         r["population"] = base_region["population"]
         base_region_mkt_share = base_region["market_share"]
         market_share = r["market_share"]
-        derived_scale = region_market_share / base_region_mkt_share
-        p["region_derived_scale"] = derived_scale
+        derived_scale = market_share / base_region_mkt_share
+        r["region_derived_scale"] = derived_scale
     regions += derived_regions
     for r in regions:
         market_share_population = r["population"] * r["market_share"]
