@@ -17,10 +17,14 @@ def get_varying_params(report_date, interpolated_days_count: int, use_future_div
 
     fixed_dates = [
         (datetime.date(2020, 4, 1), [.2]),
-        (datetime.date(2020, 4, 10), [.35, .40]),
-        (datetime.date(2020, 4, 20), [.40, .45, .50]),
-        (datetime.date(2020, 4, 30), [.40, .45, .50]),
-        (datetime.date(2020, 5, 7), _percent_range(40, 60, 5)),
+        (datetime.date(2020, 4, 10), [.35]),
+        (datetime.date(2020, 4, 20), [.40]),
+        (datetime.date(2020, 4, 30), [.45]),
+        (datetime.date(2020, 5, 7), _percent_range(50, 50, 5)),
+        #(datetime.date(2020, 4, 10), [.35, .40]),
+        #(datetime.date(2020, 4, 20), [.40, .45, .50]),
+        #(datetime.date(2020, 4, 30), [.40, .45, .50]),
+        #(datetime.date(2020, 5, 7), _percent_range(40, 60, 5)),
         #(datetime.date(2020, 5, 10), [.60]),
     ]
     last_week = report_date - datetime.timedelta(days=7)
@@ -41,12 +45,12 @@ def get_varying_params(report_date, interpolated_days_count: int, use_future_div
         fs = []
         inc = 1.0 + delta
         dec = 1.0 - delta
-        fs.append((last_week_rate, last_week_rate, last_week_rate))
-        fs.append((last_week_rate * inc, last_week_rate * inc, last_week_rate * inc))
-        fs.append((last_week_rate * inc, last_week_rate * inc**2, last_week_rate * inc**2))
+        fs.append((last_week_rate, ))
+        fs.append((0, ))
+        #fs.append((last_week_rate * inc, last_week_rate * inc**2, last_week_rate * inc**2))
         fs.append((last_week_rate * inc, last_week_rate * inc**2, last_week_rate * inc**3))
-        fs.append((last_week_rate * dec, last_week_rate * dec, last_week_rate * dec))
-        fs.append((last_week_rate * dec, last_week_rate * dec**2, last_week_rate * dec**2))
+        #fs.append((last_week_rate * dec, last_week_rate * dec, last_week_rate * dec))
+        #fs.append((last_week_rate * dec, last_week_rate * dec**2, last_week_rate * dec**2))
         fs.append((last_week_rate * dec, last_week_rate * dec**2, last_week_rate * dec**3))
         fs = [ tuple( round(r, 4) for r in rs ) for rs in fs ]
         future_stages[last_week_rate] = fs
