@@ -273,7 +273,7 @@ def _lists_equal(a, b):
     return True
 
 def get_model_params(parameters, region_results):
-    #print("PARAMETERS PRINT", parameters)
+    print("PARAMETERS PRINT", parameters)
     p = { **parameters }
     del p["param_set_id"]
     days_back = p["end_date_days_back"]
@@ -304,14 +304,16 @@ def get_model_params(parameters, region_results):
     return p
 
 def _derived_region_setup(p, derived_from, region_results):
-    region_derived_scale = p["region_derived_scale"]
-    print("region_results:", region_results)
+    derived_scale = p["region_derived_scale"]
+    print("region_results regions:", list(region_results))
     base_region_results = region_results[derived_from]
-    base_region_params = region_derived_from["params"]
+    base_region_params = base_region_results["final_params"]
+    print("base_region_params:", base_region_params)
     base_region_curr_hosp = base_region_params["current_hospitalized"]
     p["current_hospitalized"] = round(derived_scale * base_region_curr_hosp)
 
 def _base_region_setup(p, days_back):
     curr_hosp = p["hosp_census_lookback"][days_back]
     p["current_hospitalized"] = round(curr_hosp * p["region_patient_share"])
+    print("SET BASE REGION CUR HOSP:", p["current_hospitalized"])
 

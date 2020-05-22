@@ -138,6 +138,7 @@ def predict_one_region(p, region_results, hosp_dates, hosp_census_df):
         predict_for_all_regions(region_results, global_is_first_batch, output_file)
         global_is_first_batch = False
         region_results.clear()
+        print("CLEAR REGION RESULTS")
     region_results[region_name] = {
         "model_predict_df": m.raw_df,
         "matched_actual_census_df": matched_hosp_census_df,
