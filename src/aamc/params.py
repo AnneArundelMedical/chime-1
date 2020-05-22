@@ -128,18 +128,19 @@ def get_varying_params(report_date, interpolated_days_count: int, use_future_div
 
 _BASE_REGIONS = [
     { "region_name": "Anne Arundel", "region_group": 1,
-     "population": 597234, "market_share": .30, "pat_share": 0.5686 },
+     "population": 597234, "market_share": .30, "region_patient_share": 0.5686 },
     #{ "region_name": "Queen Anne's",
-    # "population": 50381, "market_share": .40, "patient_share": 0 },
+    # "population": 50381, "market_share": .40, "region_patient_share": 0 },
     #{ "region_name": "Talbot",
-    # "population": 37181, "market_share": .09, "patient_share": 0 },
+    # "population": 37181, "market_share": .09, "region_patient_share": 0 },
     { "region_name": "Prince George's",
-     "population": 909327, "market_share": .07, "patient_share": 0.4314 },
+     "population": 909327, "market_share": .07, "region_patient_share": 0.4314 },
 ]
 
 _DERIVED_REGIONS = [
-    { "region_name": "DCMC", "region_derived_from": "Prince George's",
+    { "region_name": "DCMC",
      "market_share": .23,
+     "region_derived_from": "Prince George's",
      },
 ]
 
@@ -158,6 +159,10 @@ def get_regions():
         derived_from = r["region_derived_from"]
         base_region = next( br for br in regions if br["region_name"] == derived_from )
         r["population"] = base_region["population"]
+        base_region_mkt_share = base_region["market_share"]
+        market_share = r["market_share"]
+        derived_scale = region_market_share / base_region_mkt_share
+        p["region_derived_scale"] = derived_scale
     regions += derived_regions
     for r in regions:
         market_share_population = r["population"] * r["market_share"]
@@ -298,15 +303,13 @@ def get_model_params(parameters, region_results):
     return p
 
 def _derived_region_setup(p, derived_from, region_results):
+    region_derived_scale = p["region_derived_scale"]
     base_region_results = region_results["region_derived_from"]
     base_region_params = region_derived_from["params"]
     base_region_curr_hosp = base_region_params["current_hospitalized"]
-    base_region_mkt_share = base_region_params["market_share"]
-    extrapolated_region_census = base_region_curr_hosp / base_regions
-    region_market_share = p["market_share"]
-    p["current_hospitalized"] = round(extrapolated_region_census * region_market_share)
+    p["current_hospitalized"] = round(derived_scale * base_region_curr_hosp)
 
 def _base_region_setup(p):
     curr_hosp = p["hosp_census_lookback"][days_back]
-    p["current_hospitalized"] = round(curr_hosp * p["patient_share"])
+    p["current_hospitalized"] = round(curr_hosp * p["region_patient_share"])
 
