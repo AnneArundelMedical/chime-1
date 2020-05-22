@@ -127,7 +127,7 @@ def get_varying_params(report_date, interpolated_days_count: int, use_future_div
 #REGION_INCLUDED_FIELDS = [ "region_name", "population", "market_share", ]
 
 _BASE_REGIONS = [
-    { "region_name": "Anne Arundel", "region_group": 1,
+    { "region_name": "Anne Arundel",
      "population": 597234, "market_share": .30, "region_patient_share": 0.5686 },
     #{ "region_name": "Queen Anne's",
     # "population": 50381, "market_share": .40, "region_patient_share": 0 },
