@@ -107,7 +107,7 @@ def get_varying_params(report_date, interpolated_days_count: int, use_future_div
 
         "relative_icu_rate": [
             #pct/100.0 for pct in range(20, 50 + 1, 15)
-            pct/100.0 for pct in [23]
+            pct/100.0 for pct in [24]
         ],
 
         "relative_vent_rate": [
@@ -123,33 +123,46 @@ def get_varying_params(report_date, interpolated_days_count: int, use_future_div
 # Example link: https://www.census.gov/quickfacts/annearundelcountymaryland
 # The "excluded" regions are predicted separately but not included in totals
 # because they duplicate counts already accounted for in other region rows.
-REGIONS_INCLUDED = [
-    { "region_name": "Anne Arundel", "population": 597234, "market_share": .30, },
-    { "region_name": "Prince George's", "population": 909327, "market_share": .07, },
-    { "region_name": "Queen Anne's", "population": 50381, "market_share": .40, },
-    { "region_name": "Talbot", "population": 37181, "market_share": .09, },
-];
-REGIONS_EXCLUDED = [
-    { "region_name": "DCMC", "population": REGIONS_INCLUDED[1]["population"], "market_share": .23, "exclude_pop_from_total": True },
-]
-REGIONS = REGIONS_INCLUDED + REGIONS_EXCLUDED
 
-def add_region_share():
+#REGION_INCLUDED_FIELDS = [ "region_name", "population", "market_share", ]
+
+_BASE_REGIONS = [
+    { "region_name": "Anne Arundel", "region_group": 1,
+     "population": 597234, "market_share": .30, "pat_share": 0.5686 },
+    #{ "region_name": "Queen Anne's",
+    # "population": 50381, "market_share": .40, "patient_share": 0 },
+    #{ "region_name": "Talbot",
+    # "population": 37181, "market_share": .09, "patient_share": 0 },
+    { "region_name": "Prince George's",
+     "population": 909327, "market_share": .07, "patient_share": 0.4314 },
+]
+
+_DERIVED_REGIONS = [
+    { "region_name": "DCMC", "region_derived_from": "Prince George's",
+     "market_share": .23,
+     },
+]
+
+def get_regions():
     all_regions_population = 0
     all_regions_market_share_population = 0
-    for r in REGIONS:
-        if r.get("exclude_pop_from_total", False):
-            continue
+    regions = list(_BASE_REGIONS)
+    for r in base_regions:
         market_share_population = r["population"] * r["market_share"]
         all_regions_population = \
             all_regions_population + r["population"]
         all_regions_market_share_population = \
             all_regions_market_share_population + market_share_population
-    for r in REGIONS:
+    derived_regions = list(_DERIVED_REGIONS)
+    for r in derived_regions:
+        derived_from = r["region_derived_from"]
+        base_region = next( br for br in regions if br["region_name"] == derived_from )
+        r["population"] = base_region["population"]
+    regions += derived_regions
+    for r in regions:
         market_share_population = r["population"] * r["market_share"]
         r["hosp_pop_share"] = \
             market_share_population / all_regions_market_share_population
-add_region_share()
 
 BASE_PARAMS = {
     #"current_hospitalized": 14,
@@ -206,13 +219,13 @@ def generate_param_permutations(
         combo_count = combo_count + 1
         param_set_id = param_set_id + 1
         # None takes the place of dt (doubling time)
-        p = combine_params(use_doubling_time, param_set_id, base_params, *combo)
+        p = _combine_params(use_doubling_time, param_set_id, base_params, *combo)
         #params.append(p)
         yield p
     print("Number of parameter combinations:", combo_count)
     #return params
 
-def combine_params(
+def _combine_params(
     use_doubling_time,
     param_set_id, base_params,
     relative_contact_rate, doubling_time,
@@ -252,4 +265,48 @@ def _lists_equal(a, b):
         else:
             raise ValueError("Unmatched index: %d" % ai)
     return True
+
+def get_model_params(parameters, region_results):
+    #print("PARAMETERS PRINT", parameters)
+    p = { **parameters }
+    del p["param_set_id"]
+    days_back = p["end_date_days_back"]
+    del p["end_date_days_back"]
+    p["current_date"] = \
+        p["current_date"] - datetime.timedelta(days=days_back)
+    p["region"] = Regions(**{ p["region_name"]: p["population"] })
+    #print(p["hosp_census_lookback"])
+    derived_from = p.get("region_derived_from")
+    if derived_from:
+        _derived_region_setup(p, derived_from, region_results)
+    else:
+        _base_region_setup(p)
+    del p["hosp_census_lookback"]
+    for k in p:
+        if k.startswith("region_"):
+            del p[k] # delete region_name, etc.
+    del p["hosp_pop_share"]
+    if "exclude_pop_from_total" in p:
+        del p["exclude_pop_from_total"]
+    icu_rate = round(p["relative_icu_rate"] * p["hospitalized"].rate, 4)
+    vent_rate = round(p["relative_vent_rate"] * icu_rate, 4)
+    p["icu"] = Disposition(icu_rate, p["icu_days"])
+    p["ventilated"] = Disposition(vent_rate, p["icu_days"])
+    del p["relative_icu_rate"]
+    del p["relative_vent_rate"]
+    del p["icu_days"]
+    return p
+
+def _derived_region_setup(p, derived_from, region_results):
+    base_region_results = region_results["region_derived_from"]
+    base_region_params = region_derived_from["params"]
+    base_region_curr_hosp = base_region_params["current_hospitalized"]
+    base_region_mkt_share = base_region_params["market_share"]
+    extrapolated_region_census = base_region_curr_hosp / base_regions
+    region_market_share = p["market_share"]
+    p["current_hospitalized"] = round(extrapolated_region_census * region_market_share)
+
+def _base_region_setup(p):
+    curr_hosp = p["hosp_census_lookback"][days_back]
+    p["current_hospitalized"] = round(curr_hosp * p["patient_share"])
 
