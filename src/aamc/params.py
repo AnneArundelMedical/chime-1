@@ -168,6 +168,7 @@ def get_regions():
         market_share_population = r["population"] * r["market_share"]
         r["hosp_pop_share"] = \
             market_share_population / all_regions_market_share_population
+    return regions
 
 BASE_PARAMS = {
     #"current_hospitalized": 14,
@@ -285,9 +286,9 @@ def get_model_params(parameters, region_results):
     if derived_from:
         _derived_region_setup(p, derived_from, region_results)
     else:
-        _base_region_setup(p)
+        _base_region_setup(p, days_back)
     del p["hosp_census_lookback"]
-    for k in p:
+    for k in list(p): # convert keys to list so we don't modify p while iterating
         if k.startswith("region_"):
             del p[k] # delete region_name, etc.
     del p["hosp_pop_share"]
@@ -304,12 +305,13 @@ def get_model_params(parameters, region_results):
 
 def _derived_region_setup(p, derived_from, region_results):
     region_derived_scale = p["region_derived_scale"]
-    base_region_results = region_results["region_derived_from"]
+    print("region_results:", region_results)
+    base_region_results = region_results[derived_from]
     base_region_params = region_derived_from["params"]
     base_region_curr_hosp = base_region_params["current_hospitalized"]
     p["current_hospitalized"] = round(derived_scale * base_region_curr_hosp)
 
-def _base_region_setup(p):
+def _base_region_setup(p, days_back):
     curr_hosp = p["hosp_census_lookback"][days_back]
     p["current_hospitalized"] = round(curr_hosp * p["region_patient_share"])
 

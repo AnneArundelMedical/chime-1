@@ -21,6 +21,7 @@ INTERPOLATED_DATES_COUNT = 0
 MITIGATION_DATE_LISTING_COUNT = 3
 
 start_time = None
+global_is_first_batch = False
 
 penn_chime.parameters.PRINT_PARAMS = False
 penn_chime.models.logger.setLevel(logging.CRITICAL)
@@ -96,7 +97,8 @@ def find_best_fitting_params(
         print("PARAMETER COUNT:", params_count, file=f)
     #print("EXIT EARLY")
     #sys.exit(0)
-    is_first_batch = True
+    global global_is_first_batch
+    global_is_first_batch = True
     print("Writing to file:", output_file_path)
     params_progress_count = 0
     with open(output_file_path, "w") as output_file:
@@ -132,17 +134,19 @@ def predict_one_region(p, region_results, hosp_dates, hosp_census_df):
     # entire cycle and we can record the results and start the next cycle.
     region_name = p["region_name"]
     if region_name in region_results:
-        predict_for_all_regions(region_results, is_first_batch, output_file)
-        is_first_batch = False
+        global global_is_first_batch
+        predict_for_all_regions(region_results, global_is_first_batch, output_file)
+        global_is_first_batch = False
         region_results.clear()
-        region_results[region_name] = {
-            "model_predict_df": m.raw_df,
-            "matched_actual_census_df": matched_hosp_census_df,
-            "matched_predict_census_df": matched_pred_census_df,
-            "params": p,
-            "final_params": final_p,
-            "is_derived": bool(p.get("region_derived_from"))
-        }
+    region_results[region_name] = {
+        "model_predict_df": m.raw_df,
+        "matched_actual_census_df": matched_hosp_census_df,
+        "matched_predict_census_df": matched_pred_census_df,
+        "params": p,
+        "final_params": final_p,
+        "is_derived": bool(p.get("region_derived_from"))
+    }
+    print("Added region results:", region_name)
 
 def record_progress(params_progress_count, params_count):
     global start_time
@@ -388,8 +392,8 @@ def mitigation_policy_tostring(mitigation_policy):
     s = [ "%s:%f" % (d.isoformat(), r) for (d, r) in mitigation_policy ]
     return ";".join(s)
 
-def get_model_from_params(parameters):
-    p = get_model_params(parameters)
+def get_model_from_params(parameters, region_results):
+    p = get_model_params(parameters, region_results)
     print(p)
     params_obj = Parameters(**p)
     m = penn_chime.models.SimSirModel(params_obj)

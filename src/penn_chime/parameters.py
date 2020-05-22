@@ -48,6 +48,11 @@ class Regions:
             population += value
         self.population = population
 
+    def __str__(self):
+        return "Regions" + str(self.__dict__)
+
+    def __repr__(self):
+        return self.__str__()
 
 def cast_date(string):
     return datetime.strptime(string, '%Y-%m-%d').date()
