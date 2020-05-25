@@ -228,7 +228,14 @@ def load_qlik_exported_data(report_date):
                      int(vent),
                      #county,
                     ]
-                    for (d, cen, icu, vent, county) in csv_reader]
+                    for (
+                            d,
+                            cen,
+                            icu,
+                            vent,
+                            #county,
+                        ) in csv_reader
+                    ]
         print("Column names:", column_names)
         for row in csv_rows:
             json.dump(row, sys.stdout, default=lambda x: str(x))
