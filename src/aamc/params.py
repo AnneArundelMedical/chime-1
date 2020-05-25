@@ -125,7 +125,7 @@ def get_varying_params(report_date, interpolated_days_count: int, use_future_div
 
         "relative_icu_rate": [
             #pct/100.0 for pct in range(20, 50 + 1, 15)
-            pct/100.0 for pct in [24]
+            pct/100.0 for pct in [24, 30, 35]
         ],
 
         "relative_vent_rate": [
