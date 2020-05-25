@@ -10,11 +10,14 @@ import datetime
 import sys, json, re, os, os.path
 import functools, itertools, traceback, hashlib
 
-_future_divergence_set_size = 1
+_future_divergence_group_size = None
+_region_count = 0
 
 def get_future_divergence_set_size():
-    global _future_divergence_set_size
-    return _future_divergence_set_size
+    global _future_divergence_group_size, _region_count
+    future_divergence_set_size = _region_count * _future_divergence_group_size
+    assert future_divergence_set_size > 0
+    return future_divergence_set_size
 
 def _percent_range(lo_bound, hi_bound, step):
     return [ r/100.0 for r in range(lo_bound, hi_bound + 1, step) ]
@@ -57,8 +60,8 @@ def get_varying_params(report_date, interpolated_days_count: int, use_future_div
             last_week_rate * dec, last_week_rate * dec**2, last_week_rate * dec**3),
     ]
 
-    global _future_divergence_set_size
-    _future_divergence_set_size *= len(future_divergence_transforms)
+    global _future_divergence_group_size
+    _future_divergence_group_size = len(future_divergence_transforms)
 
     future_stages = {}
     for last_week_rate in last_week_rates:
@@ -186,8 +189,8 @@ def get_regions():
         market_share_population = r["population"] * r["market_share"]
         r["hosp_pop_share"] = \
             market_share_population / all_regions_market_share_population
-    global _future_divergence_set_size
-    _future_divergence_set_size *= len(regions)
+    global _region_count
+    _region_count = len(regions)
     return regions
 
 BASE_PARAMS = {
@@ -321,7 +324,6 @@ def get_model_params(parameters, region_results):
     del p["relative_icu_rate"]
     del p["relative_vent_rate"]
     del p["icu_days"]
-    del p["future_divergence_set_id"]
     return p
 
 def _derived_region_setup(p, derived_from, region_results):

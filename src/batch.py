@@ -101,17 +101,12 @@ def find_best_fitting_params(
     params_progress_count = 0
     with open(output_file_path, "w") as output_file:
         region_results = {}
-        future_divergence_set_counter = 0
-        future_divergence_set_size = get_future_divergence_set_size()
-        future_divergence_set_id = 0
         for p in generate_param_permutations(USE_DOUBLING_TIME, *generate_param_arguments):
             params_progress_count += 1
             record_progress(params_progress_count, params_count)
             try:
-                p["future_divergence_set_id"] = future_divergence_set_id
                 current_region_results = predict_one_region(
-                    p, region_results, hosp_dates, hosp_census_df,
-                    future_divergence_set_id)
+                    p, region_results, hosp_dates, hosp_census_df)
                 # When we see the same region a second time, we know that we've seen an
                 # entire cycle and we can record the results and start the next cycle.
                 region_name = p["region_name"]
@@ -123,10 +118,6 @@ def find_best_fitting_params(
                     print("CLEAR REGION RESULTS")
                 region_results[region_name] = current_region_results
                 print("Added region results:", region_name)
-                future_divergence_set_counter += 1
-                if future_divergence_set_counter == future_divergence_set_size:
-                    future_divergence_set_counter = 0
-                    future_divergence_set_id += 1
             except Exception as e:
                 print("ERROR:")
                 traceback.print_exc()
@@ -139,8 +130,7 @@ def find_best_fitting_params(
     with open("OUTPUT_PATH.txt", "w") as f:
         print(output_path_display, file=f)
 
-def predict_one_region(p, region_results, hosp_dates, hosp_census_df,
-                       future_divergence_set_id):
+def predict_one_region(p, region_results, hosp_dates, hosp_census_df):
     # The prediction happens here.
     m, final_p = get_model_from_params(p, region_results)
     # DataFrame raw_df holds the results of the model's prediction.
@@ -225,6 +215,8 @@ def combine_model_predictions(region_results_list, params_list):
     group_param_set_id = min(
         [ r["params"]["param_set_id"] for r in region_results_list ])
     combined_model_predict_df["group_param_set_id"] = group_param_set_id
+    combined_model_predict_df["future_divergence_set_id"] = \
+            int(group_param_set_id / get_future_divergence_set_size())
     return combined_model_predict_df
 
 def add_actual_share_census(region_results):
@@ -340,7 +332,6 @@ def write_fit_rows(
         df["ventilated_rate"] = final_p["ventilated"].rate
         df["ventilated_days"] = final_p["ventilated"].days
         df["current_hospitalized"] = final_p["current_hospitalized"]
-        df["future_divergence_set_id"] = p["future_divergence_set_id"]
     except KeyError as e:
         print("EXCEPTION IN WRITE:", e, file=sys.stderr)
         with open(ERRORS_FILE, "a") as errfile:
