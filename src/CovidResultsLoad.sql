@@ -38,6 +38,7 @@ create table CovidPennModel (
   population int not null,
   market_share real not null,
   group_param_set_id int not null,
+  future_divergence_set_id int not null,
 
   policy_str varchar(max),
   policy_hash bigint not null,
@@ -66,7 +67,6 @@ create table CovidPennModel (
   ventilated_rate real not null,
   ventilated_days int not null,
   current_hospitalized int not null,
-  future_divergence_set_id int not null,
 
   primary key (run_date, [day], region_name, param_set_id)
 
@@ -105,7 +105,7 @@ with (data_compression = page);
 print 'Index created.';
 
 bulk insert CovidPennModel
-from 'D:\PennModelFit_Combined_2020-05-22_20200523232256.csv'
+from 'D:\PennModelFit_Combined_2020-05-24_20200525184146.csv'
 with (tablock, firstrow=2, fieldterminator=',', rowterminator='\r\n')
 ;
 
