@@ -25,12 +25,12 @@ def _percent_range(lo_bound, hi_bound, step):
 def get_varying_params(report_date, interpolated_days_count: int, use_future_divergence: bool):
 
     fixed_dates = [
-        (datetime.date(2020, 4, 1), [.10]),
-        (datetime.date(2020, 4, 10), [.35]),
+        (datetime.date(2020, 4, 1), [.8, .10, .12]),
+        (datetime.date(2020, 4, 10), [.28, .30, .32, .35]),
         (datetime.date(2020, 4, 20), [.50]),
         (datetime.date(2020, 4, 30), [.45]),
         (datetime.date(2020, 5, 7), [.60]),
-        (datetime.date(2020, 5, 14), [.64]),
+        (datetime.date(2020, 5, 14), [.60, .64]),
     ]
 
     last_week = report_date - datetime.timedelta(days=7)
