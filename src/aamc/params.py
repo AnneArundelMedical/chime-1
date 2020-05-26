@@ -25,7 +25,7 @@ def _percent_range(lo_bound, hi_bound, step):
 def get_varying_params(report_date, interpolated_days_count: int, use_future_divergence: bool):
 
     fixed_dates = [
-        (datetime.date(2020, 4, 1), [.8, .10, .12]),
+        (datetime.date(2020, 4, 1), [0, .8, .10, .12]),
         (datetime.date(2020, 4, 10), [.28, .30, .32, .35]),
         (datetime.date(2020, 4, 20), [.50]),
         (datetime.date(2020, 4, 30), [.45]),
@@ -125,7 +125,7 @@ def get_varying_params(report_date, interpolated_days_count: int, use_future_div
 
         "relative_icu_rate": [
             #pct/100.0 for pct in range(20, 50 + 1, 15)
-            pct/100.0 for pct in [24, 30, 35]
+            pct/100.0 for pct in [24, 30]
         ],
 
         "relative_vent_rate": [
