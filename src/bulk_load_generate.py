@@ -11,6 +11,7 @@ DB_LOGIN_SERVER = "AAMCVEPCNDW01"
 DB_LOGIN_DATABASE = "CovidModel"
 
 OUTPUT_PATH = "OUTPUT_PATH.txt"
+TRUNCATE_SQL = "CovidResultsTruncate.sql"
 BULK_LOAD_TEMPLATE = "CovidResultsBulkLoadTemplate.sql"
 BULK_LOAD_GENERATED = "CovidResultsBulkLoadGenerated.sql"
 
@@ -40,20 +41,32 @@ def generate_sql_from_template(script_dir, full_output_path):
         f.write(sql)
     return sql
 
+def get_truncate_sql():
+    with open(TRUNCATE_SQL) as f:
+        return f.read().strip()
+
 def load_data_sqlcmd(full_output_path):
     cmd = ["sqlcmd", "-E", "-S", DB_LOGIN_SERVER, "-d", "CovidModel", "-i", full_output_path]
     subprocess.run(cmd, check=True)
 
-def load_data_direct(sql):
+def load_data_direct(truncate_sql, load_sql):
+    print("Database:", DB_LOGIN_SERVER, DB_LOGIN_DATABASE)
     conn = _connect(DB_LOGIN_SERVER, DB_LOGIN_DATABASE)
     cursor = conn.cursor()
-    cursor.execute(sql)
+    print("TRUNCATE:")
+    print(truncate_sql)
+    cursor.execute(truncate_sql)
+    print("LOAD:")
+    print(load_sql)
+    cursor.execute(load_sql)
+    print("Load complete.")
 
 def main():
     script_dir, full_output_path = get_paths()
-    sql = generate_sql_from_template(script_dir, full_output_path)
+    truncate_sql = get_truncate_sql()
+    load_sql = generate_sql_from_template(script_dir, full_output_path)
     #load_data_sqlcmd(full_output_path)
-    load_data_direct(sql)
+    load_data_direct(truncate_sql, load_sql)
 
 if __name__ == "__main__":
     main()
