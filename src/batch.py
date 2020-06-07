@@ -16,4 +16,4 @@ if __name__ == "__main__":
     today_override = get_date_override()
     data_based_variations(today_override, False)
     print_errors()
-
+    load_model()

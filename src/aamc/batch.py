@@ -409,4 +409,5 @@ def print_errors():
     if os.path.exists(ERRORS_FILE):
         with open(ERRORS_FILE, "r") as f:
             sys.stderr.write(f.read())
-
+        return True
+    return False
