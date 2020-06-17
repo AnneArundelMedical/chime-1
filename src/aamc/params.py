@@ -11,10 +11,12 @@ import sys, json, re, os, os.path
 import functools, itertools, traceback, hashlib
 
 _future_divergence_group_size = None
-_region_count = 0
+_region_count = None
 
 def get_future_divergence_set_size():
     global _future_divergence_group_size, _region_count
+    assert _future_divergence_group_size is not None
+    assert _region_count is not None
     future_divergence_set_size = _region_count * _future_divergence_group_size
     assert future_divergence_set_size > 0
     return future_divergence_set_size

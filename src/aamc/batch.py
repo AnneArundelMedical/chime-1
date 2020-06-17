@@ -357,8 +357,8 @@ def increment_iters():
     sys.stdout.flush()
 
 def summarize_mitigation_policy(report_date, mitigation_stages):
-    past_policy = [ ms for ms in mitigation_stages if ms[0] <= report_date ]
-    future_policy = [ ms for ms in mitigation_stages if ms[0] > report_date ]
+    past_policy = [ ms for ms in mitigation_stages if ms[0] < report_date ]
+    future_policy = [ ms for ms in mitigation_stages if ms[0] >= report_date ]
     complete_str, past_str, future_str = [
         mitigation_policy_tostring(mp)
         for mp in [ mitigation_stages, past_policy, future_policy ]
