@@ -27,12 +27,13 @@ def _percent_range(lo_bound, hi_bound, step):
 def get_varying_params(report_date, interpolated_days_count: int, use_future_divergence: bool):
 
     fixed_dates = [
-        (datetime.date(2020, 4, 1), [0, .8, .10, .12]),
-        (datetime.date(2020, 4, 10), [.28, .30, .32, .35]),
+        (datetime.date(2020, 4, 1), [.12]),
+        (datetime.date(2020, 4, 10), [.35]),
         (datetime.date(2020, 4, 20), [.50]),
         (datetime.date(2020, 4, 30), [.45]),
         (datetime.date(2020, 5, 7), [.60]),
-        (datetime.date(2020, 5, 14), [.60, .64]),
+        (datetime.date(2020, 5, 14), [.6]),
+        (datetime.date(2020, 6, 13), [.64]),
     ]
 
     last_week = report_date - datetime.timedelta(days=7)
@@ -47,16 +48,20 @@ def get_varying_params(report_date, interpolated_days_count: int, use_future_div
         + [ (last_week, last_week_rates) ]
     )
 
-    delta = 0.10
+    delta = 0.15
     inc = 1.0 + delta
     dec = 1.0 - delta
+    print (inc**2.0)
+    print (dec**2.0)
     future_divergence_transforms = [
-        lambda last_week_rate: (.20, ),
-        lambda last_week_rate: (last_week_rate, ),
+        lambda last_week_rate: (.20,.20,.20 ),
+        lambda last_week_rate: (last_week_rate,last_week_rate,last_week_rate ),
         lambda last_week_rate: (
-            last_week_rate * inc, last_week_rate * inc**2, last_week_rate * inc**3),
+            last_week_rate * inc, last_week_rate * inc**2.0, last_week_rate * inc**3.0),
         lambda last_week_rate: (
-            last_week_rate * dec, last_week_rate * dec**2, last_week_rate * dec**3),
+            last_week_rate * dec, last_week_rate * dec**2.0, last_week_rate * dec**3.0),
+        lambda last_week_rate: (
+            last_week_rate * dec, last_week_rate * dec**2.0, last_week_rate * dec**3.0),
     ]
 
     global _future_divergence_group_size
@@ -159,7 +164,7 @@ _BASE_REGIONS = [
 
 _DERIVED_REGIONS = [
     { "region_name": "DCMC",
-     "market_share": .23,
+     "market_share": .25,
      "region_derived_from": "Prince George's",
      },
 ]
