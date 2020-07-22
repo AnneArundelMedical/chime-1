@@ -34,6 +34,8 @@ def get_varying_params(report_date, interpolated_days_count: int, use_future_div
         (datetime.date(2020, 5, 7), [.60]),
         (datetime.date(2020, 5, 14), [.6]),
         (datetime.date(2020, 6, 13), [.64]),
+        (datetime.date(2020, 7, 1), [.50, .60, .65, .70]),
+        (datetime.date(2020, 7, 14), [.50, .60, .65, .70]),
     ]
 
     last_week = report_date - datetime.timedelta(days=7)
@@ -132,7 +134,7 @@ def get_varying_params(report_date, interpolated_days_count: int, use_future_div
 
         "relative_icu_rate": [
             #pct/100.0 for pct in range(20, 50 + 1, 15)
-            pct/100.0 for pct in [24, 30]
+            pct/100.0 for pct in [10] # was: [24, 30]
         ],
 
         "relative_vent_rate": [
@@ -151,15 +153,19 @@ def get_varying_params(report_date, interpolated_days_count: int, use_future_div
 
 #REGION_INCLUDED_FIELDS = [ "region_name", "population", "market_share", ]
 
+_ROUND_DIGITS = 4
+_PATIENT_PORTION_ANNEARUNDEL = round(61/102, _ROUND_DIGITS) # original: 0.5686
+_PATIENT_PORTION_PGC = round(21/102, _ROUND_DIGITS)         # original: 0.4314
+
 _BASE_REGIONS = [
     { "region_name": "Anne Arundel",
-     "population": 597234, "market_share": .30, "region_patient_share": 0.5686 },
+     "population": 597234, "market_share": .30, "region_patient_share": _PATIENT_PORTION_ANNEARUNDEL },
     #{ "region_name": "Queen Anne's",
     # "population": 50381, "market_share": .40, "region_patient_share": 0 },
     #{ "region_name": "Talbot",
     # "population": 37181, "market_share": .09, "region_patient_share": 0 },
     { "region_name": "Prince George's",
-     "population": 909327, "market_share": .07, "region_patient_share": 0.4314 },
+     "population": 909327, "market_share": .07, "region_patient_share": _PATIENT_PORTION_PGC },
 ]
 
 _DERIVED_REGIONS = [
