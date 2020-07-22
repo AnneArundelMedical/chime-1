@@ -35,7 +35,7 @@ def get_varying_params(report_date, interpolated_days_count: int, use_future_div
         (datetime.date(2020, 5, 14), [.6]),
         (datetime.date(2020, 6, 13), [.64]),
         (datetime.date(2020, 7, 1), [.50, .60, .65, .70]),
-        (datetime.date(2020, 7, 14), [.50, .60, .65, .70]),
+        (datetime.date(2020, 7, 7), [.50, .60, .65, .70]),
     ]
 
     last_week = report_date - datetime.timedelta(days=7)
@@ -103,7 +103,8 @@ def get_varying_params(report_date, interpolated_days_count: int, use_future_div
         ]
 
     for (d1, d2) in zip(dates[:-1], dates[1:]):
-        assert d1 < d2
+        if not (d1 < d2):
+            raise AssertionError("Dates not in order:", d1, d2)
 
     mitigation_stages = [
         list(zip(dates, combo))
