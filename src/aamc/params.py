@@ -157,18 +157,15 @@ _ROUND_DIGITS = 4
 # original portions: AA 0.5686, PGC 0.4314
 # 2020-07-22: AA 61/102, PGC 21/102
 # all time: AA 59%, PGC 31%
-_PATIENT_PORTION_ANNEARUNDEL = round(.59, _ROUND_DIGITS) # original: 0.5686
-_PATIENT_PORTION_PGC = round(.31, _ROUND_DIGITS)         # original: 0.4314
+_PATIENT_PORTION_ANNEARUNDEL = round(.65, _ROUND_DIGITS) # pct increased to sum to 100%
+_PATIENT_PORTION_PGC = round(.35, _ROUND_DIGITS) # pct increased to sum to 100%
+_PATIENT_PORTION_SUM = _PATIENT_PORTION_ANNEARUNDEL + _PATIENT_PORTION_PGC
 
 _BASE_REGIONS = [
-    { "region_name": "Anne Arundel",
-     "population": 597234, "market_share": .30, "region_patient_share": _PATIENT_PORTION_ANNEARUNDEL },
-    #{ "region_name": "Queen Anne's",
-    # "population": 50381, "market_share": .40, "region_patient_share": 0 },
-    #{ "region_name": "Talbot",
-    # "population": 37181, "market_share": .09, "region_patient_share": 0 },
-    { "region_name": "Prince George's",
-     "population": 909327, "market_share": .07, "region_patient_share": _PATIENT_PORTION_PGC },
+    { "region_name": "Anne Arundel", "population": 597234, "market_share": .30, "region_patient_share": _PATIENT_PORTION_ANNEARUNDEL },
+    #{ "region_name": "Queen Anne's", "population": 50381, "market_share": .40, "region_patient_share": _PATIENT_PORTION_SUM/2 },
+    #{ "region_name": "Talbot", "population": 37181, "market_share": .09, "region_patient_share": _PATIENT_PORTION_SUM/2 },
+    { "region_name": "Prince George's", "population": 909327, "market_share": .07, "region_patient_share": _PATIENT_PORTION_PGC },
 ]
 
 _DERIVED_REGIONS = [
