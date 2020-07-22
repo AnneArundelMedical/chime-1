@@ -154,8 +154,11 @@ def get_varying_params(report_date, interpolated_days_count: int, use_future_div
 #REGION_INCLUDED_FIELDS = [ "region_name", "population", "market_share", ]
 
 _ROUND_DIGITS = 4
-_PATIENT_PORTION_ANNEARUNDEL = round(61/102, _ROUND_DIGITS) # original: 0.5686
-_PATIENT_PORTION_PGC = round(21/102, _ROUND_DIGITS)         # original: 0.4314
+# original portions: AA 0.5686, PGC 0.4314
+# 2020-07-22: AA 61/102, PGC 21/102
+# all time: AA 59%, PGC 31%
+_PATIENT_PORTION_ANNEARUNDEL = round(.59, _ROUND_DIGITS) # original: 0.5686
+_PATIENT_PORTION_PGC = round(.31, _ROUND_DIGITS)         # original: 0.4314
 
 _BASE_REGIONS = [
     { "region_name": "Anne Arundel",
